@@ -1,23 +1,24 @@
-use std::path::Path;
 use std::{ffi::CString, marker::PhantomData};
 
 use raylib_sys::{self as sys};
 
 pub use raylib_sys::{Color, KeyboardKey, Rectangle, Vector2};
 
-use crate::bytes::RlBytesOwned;
+use crate::image::Image;
+use crate::window::Window;
 
 pub mod bytes;
+pub mod image;
 pub mod rand;
 pub mod text;
-
-mod window;
-pub use window::*;
+pub mod window;
 
 pub mod prelude {
     pub use crate::{
-        Bounded, Color, ConfigFlags, DrawTarget, KeyboardKey, Rectangle, Vector2, Window,
+        Bounded, Color, DrawTarget, KeyboardKey, Rectangle, Texture2D, Vector2,
+        image::Image,
         rand::Random,
+        window::{ConfigFlags, Window},
     };
 }
 
@@ -56,6 +57,10 @@ impl Mouse<'_> {
 
     pub fn delta(&self) -> Vector2 {
         unsafe { sys::GetMouseDelta() }
+    }
+
+    pub fn wheel_move(&self) -> f32 {
+        unsafe { sys::GetMouseWheelMove() }
     }
 
     pub fn wheel_move_v(&self) -> Vector2 {
@@ -240,125 +245,6 @@ impl DrawTarget for Frame<'_> {
         unsafe { sys::DrawText(text.as_ptr(), pos.x as _, pos.y as _, font_size as _, color) };
     }
 }
-
-#[derive(Debug)]
-pub struct Image(sys::Image);
-
-impl Drop for Image {
-    fn drop(&mut self) {
-        unsafe { sys::UnloadImage(self.0) };
-    }
-}
-
-impl Image {
-    pub(crate) fn from_sys(img: sys::Image) -> Option<Image> {
-        if img.data.is_null() {
-            None
-        } else {
-            Some(Self(img))
-        }
-    }
-
-    pub fn load(file: impl AsRef<Path>) -> std::io::Result<Self> {
-        let file = file.as_ref();
-        let Some(extension) = file.extension() else {
-            return Err(std::io::Error::other("Missing File Extension"));
-        };
-        let contents = std::fs::read(file)?;
-        let extension = {
-            let mut vec = Vec::with_capacity(extension.as_encoded_bytes().len() + 1);
-            vec.push(b'.');
-            vec.extend_from_slice(extension.as_encoded_bytes());
-            CString::new(vec).expect("Path can't contain null")
-        };
-        let image = Self::from_sys(unsafe {
-            sys::LoadImageFromMemory(
-                extension.as_ptr(),
-                contents.as_ptr(),
-                contents.len().try_into().unwrap(),
-            )
-        });
-
-        if let Some(image) = image {
-            Ok(image)
-        } else {
-            Err(std::io::Error::other("Unable to load image"))
-        }
-    }
-
-    pub fn export_to_memory(&self, file_type: &str) -> RlBytesOwned {
-        let mut file_size: usize = 0;
-        let data = unsafe {
-            sys::ExportImageToMemory(
-                self.0,
-                CString::new(file_type).unwrap().as_ptr(),
-                (&raw mut file_size).cast(),
-            )
-        };
-
-        // SAFETY: data is from raylib and file_size is correct
-        unsafe { RlBytesOwned::from_raw_parts(data, file_size) }
-    }
-
-    pub fn draw_image(&mut self, image: &Image, src: Rectangle, dst: Rectangle, tint: Color) {
-        unsafe { sys::ImageDraw(&raw mut self.0, image.0, src, dst, tint) };
-    }
-}
-
-impl Bounded for Image {
-    fn width(&self) -> u32 {
-        self.0.width as _
-    }
-
-    fn height(&self) -> u32 {
-        self.0.height as _
-    }
-}
-
-impl DrawTarget for Image {
-    fn clear_background(&mut self, color: Color) {
-        unsafe { sys::ImageClearBackground(&raw mut self.0, color) };
-    }
-
-    fn draw_circle(&mut self, center: Vector2, radius: f32, color: Color) {
-        unsafe {
-            sys::ImageDrawCircle(
-                &raw mut self.0,
-                center.x as _,
-                center.y as _,
-                radius as _,
-                color,
-            )
-        };
-    }
-
-    fn draw_line(&mut self, from: Vector2, to: Vector2, thick: f32, color: Color) {
-        unsafe { sys::ImageDrawLineEx(&raw mut self.0, from, to, thick as _, color) };
-    }
-
-    fn draw_rectangle(&mut self, rect: Rectangle, color: Color) {
-        unsafe { sys::ImageDrawRectangleRec(&raw mut self.0, rect, color) };
-    }
-
-    fn draw_rectangle_lines(&mut self, rect: Rectangle, line_thick: f32, color: Color) {
-        unsafe { sys::ImageDrawRectangleLines(&raw mut self.0, rect, line_thick as _, color) };
-    }
-
-    fn draw_text(&mut self, text: impl AsRef<str>, pos: Vector2, font_size: u32, color: Color) {
-        let text = CString::new(text.as_ref()).expect("str has no null");
-        unsafe {
-            sys::ImageDrawText(
-                &raw mut self.0,
-                text.as_ptr(),
-                pos.x as _,
-                pos.y as _,
-                font_size as _,
-                color,
-            )
-        };
-    }
-}
-
 #[derive(Debug)]
 pub struct Texture2D(sys::Texture2D);
 
@@ -380,6 +266,6 @@ impl Bounded for Texture2D {
 
 impl Texture2D {
     pub fn from_image(image: &Image) -> Self {
-        Self(unsafe { sys::LoadTextureFromImage(image.0) })
+        Self(unsafe { sys::LoadTextureFromImage(image.inner()) })
     }
 }

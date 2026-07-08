@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use rl::{Bounded, Color, DrawTarget, KeyboardKey, Rectangle, Vector2, Window, rand::Random};
+use rl::prelude::*;
 
 fn reset(ball_pos: &mut Vector2, ball_vel: &mut Vector2) {
     *ball_pos = Vector2::new(400., 300.);

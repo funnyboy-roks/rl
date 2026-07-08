@@ -1,7 +1,4 @@
-use std::{
-    ffi::CStr,
-    ops::{Deref, DerefMut},
-};
+use std::ops::{Deref, DerefMut};
 
 use raylib_sys as sys;
 
@@ -52,36 +49,5 @@ impl DerefMut for RlBytesOwned {
     fn deref_mut(&mut self) -> &mut Self::Target {
         // SAFETY: required by constructor
         unsafe { std::slice::from_raw_parts_mut(self.ptr, self.len) }
-    }
-}
-
-#[derive(Debug)]
-pub struct RlString(RlBytesOwned);
-
-impl RlString {
-    /// # SAFETY
-    ///
-    /// The pointer must have been allocated by RayLib (probaly MemAlloc) and must point to a valid,
-    /// null-terminated, utf-8 string
-    pub(crate) unsafe fn from_ptr(ptr: *mut i8) -> Self {
-        unsafe {
-            Self(RlBytesOwned::from_raw_parts(
-                ptr.cast(),
-                CStr::from_ptr(ptr).count_bytes(),
-            ))
-        }
-    }
-
-    /// Reallocate this string as a rust string
-    pub fn reallocate(self) -> String {
-        // SAFETY: required by constructor
-        unsafe { String::from_utf8_unchecked(self.0.reallocate()) }
-    }
-}
-
-impl AsRef<str> for RlString {
-    fn as_ref(&self) -> &str {
-        // SAFETY: required by constructor
-        unsafe { std::str::from_utf8_unchecked(self.0.as_ref()) }
     }
 }

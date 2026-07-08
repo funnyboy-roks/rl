@@ -167,6 +167,7 @@ impl Window {
         get_monitor_count => GetMonitorCount -> u32;
         get_position => GetWindowPosition -> Vector2;
         get_scale_dpi => GetWindowScaleDPI -> Vector2;
+        get_fps => GetFPS -> u32;
     }
 
     pub fn is_state(&self, flag: ConfigFlags) -> bool {
@@ -238,7 +239,7 @@ impl Window {
     }
 
     pub fn set_icon(&mut self, image: &Image) {
-        unsafe { sys::SetWindowIcon(image.0) }
+        unsafe { sys::SetWindowIcon(image.inner()) }
     }
 
     pub fn set_icons(&mut self, images: &[Image]) {
@@ -246,7 +247,7 @@ impl Window {
             self.set_icon(&images[0]);
             return;
         }
-        let mut images = images.iter().map(|i| i.0).collect::<Vec<_>>();
+        let mut images = images.iter().map(Image::inner).collect::<Vec<_>>();
         unsafe { sys::SetWindowIcons(images.as_mut_ptr(), images.len() as _) }
     }
 
