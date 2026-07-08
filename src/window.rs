@@ -6,7 +6,10 @@ use crate::{Frame, Image, Vector2};
 
 #[derive(Debug)]
 pub struct Window {
-    pub(super) prev_mouse: Option<Vector2>,
+    pub(crate) prev_mouse: Option<Vector2>,
+    // 1 + Number of frames that have been run since this window was started.  Value is intialised
+    // on call to begin_drawing
+    pub(crate) frame_count: u64,
 }
 
 impl Drop for Window {
@@ -53,7 +56,10 @@ impl Window {
         // SAFETY: title is heap allocated c-string
         unsafe { sys::InitWindow(width as _, height as _, title.as_ptr()) };
 
-        Window { prev_mouse: None }
+        Window {
+            prev_mouse: None,
+            frame_count: 0,
+        }
     }
 
     pub fn init_with_flags(
@@ -63,11 +69,7 @@ impl Window {
         flags: ConfigFlags,
     ) -> Window {
         unsafe { sys::SetConfigFlags(flags.bits()) };
-
-        let title = CString::new(title.as_ref()).expect("str can't contain null");
-        unsafe { sys::InitWindow(width as _, height as _, title.as_ptr()) };
-
-        Window { prev_mouse: None }
+        Self::init(width, height, title)
     }
 
     pub fn close(self) {
@@ -80,6 +82,7 @@ impl Window {
 
     pub fn begin_drawing<'a>(&'a mut self) -> Frame<'a> {
         unsafe { sys::BeginDrawing() };
+        self.frame_count += 1;
         Frame { window: self }
     }
 

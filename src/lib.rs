@@ -14,6 +14,13 @@ pub mod text;
 mod window;
 pub use window::*;
 
+pub mod prelude {
+    pub use crate::{
+        Bounded, Color, ConfigFlags, DrawTarget, KeyboardKey, Rectangle, Vector2, Window,
+        rand::Random,
+    };
+}
+
 pub trait Bounded {
     fn width(&self) -> u32;
     fn height(&self) -> u32;
@@ -31,6 +38,7 @@ pub trait DrawTarget {
     fn draw_circle(&mut self, center: Vector2, radius: f32, color: Color);
     fn draw_line(&mut self, from: Vector2, to: Vector2, thick: f32, color: Color);
     fn draw_rectangle(&mut self, rect: Rectangle, color: Color);
+    fn draw_rectangle_lines(&mut self, rect: Rectangle, line_thick: f32, color: Color);
     fn draw_text(&mut self, text: impl AsRef<str>, pos: Vector2, font_size: u32, color: Color);
 }
 
@@ -108,6 +116,12 @@ impl Frame<'_> {
 
     pub fn get_time(&self) -> f32 {
         unsafe { sys::GetFrameTime() }
+    }
+
+    /// The number of frames that have run
+    pub fn count(&self) -> u64 {
+        // Because we increment at the start, we need to subtract one for an accurate count
+        self.window().frame_count - 1
     }
 
     pub fn draw_fps(&mut self, x: i32, y: i32) {
@@ -217,6 +231,10 @@ impl DrawTarget for Frame<'_> {
         unsafe { sys::DrawRectangleRec(rect, color) };
     }
 
+    fn draw_rectangle_lines(&mut self, rect: Rectangle, line_thick: f32, color: Color) {
+        unsafe { sys::DrawRectangleLinesEx(rect, line_thick, color) };
+    }
+
     fn draw_text(&mut self, text: impl AsRef<str>, pos: Vector2, font_size: u32, color: Color) {
         let text = CString::new(text.as_ref()).expect("str has no null");
         unsafe { sys::DrawText(text.as_ptr(), pos.x as _, pos.y as _, font_size as _, color) };
@@ -320,6 +338,10 @@ impl DrawTarget for Image {
 
     fn draw_rectangle(&mut self, rect: Rectangle, color: Color) {
         unsafe { sys::ImageDrawRectangleRec(&raw mut self.0, rect, color) };
+    }
+
+    fn draw_rectangle_lines(&mut self, rect: Rectangle, line_thick: f32, color: Color) {
+        unsafe { sys::ImageDrawRectangleLines(&raw mut self.0, rect, line_thick as _, color) };
     }
 
     fn draw_text(&mut self, text: impl AsRef<str>, pos: Vector2, font_size: u32, color: Color) {
