@@ -1,8 +1,79 @@
-use std::{ffi::CString, path::Path};
+use std::{
+    ffi::{CStr, CString},
+    path::Path,
+    str::FromStr,
+};
 
 use raylib_sys as sys;
 
 use crate::{Bounded, Color, DrawTarget, Rectangle, Vector2, bytes::RlBytesOwned};
+
+#[derive(Debug, Clone, Copy)]
+pub enum FileType {
+    Png,
+    Bmp,
+    Tga,
+    Jpg,
+    Gif,
+    Pic,
+    Ppm,
+    Psd,
+}
+
+impl FileType {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            FileType::Png => "png",
+            FileType::Bmp => "bmp",
+            FileType::Tga => "tga",
+            FileType::Jpg => "jpg",
+            FileType::Gif => "gif",
+            FileType::Pic => "pic",
+            FileType::Ppm => "ppm",
+            FileType::Psd => "psd",
+        }
+    }
+
+    pub(crate) const fn as_cstr(self) -> &'static CStr {
+        match self {
+            FileType::Png => c"png",
+            FileType::Bmp => c"bmp",
+            FileType::Tga => c"tga",
+            FileType::Jpg => c"jpg",
+            FileType::Gif => c"gif",
+            FileType::Pic => c"pic",
+            FileType::Ppm => c"ppm",
+            FileType::Psd => c"psd",
+        }
+    }
+
+    #[allow(clippy::should_implement_trait)]
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            ".png" | ".PNG" => Some(Self::Png),
+            ".bmp" | ".BMP" => Some(Self::Bmp),
+            ".tga" | ".TGA" => Some(Self::Tga),
+            ".jpg" | ".JPG" | ".jpeg" | ".JPEG" => Some(Self::Jpg),
+            ".gif" | ".GIF" => Some(Self::Gif),
+            ".pic" | ".PIC" => Some(Self::Pic),
+            ".ppm" | ".PPM" | ".pgm" | ".PGM" => Some(Self::Ppm),
+            ".psd" | ".PSD" => Some(Self::Psd),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
+pub struct InvalidFileType;
+
+impl FromStr for FileType {
+    type Err = InvalidFileType;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::from_str(s).ok_or(InvalidFileType)
+    }
+}
 
 #[derive(Debug)]
 pub struct Image(sys::Image);
@@ -59,12 +130,12 @@ impl Image {
 
 /// Export
 impl Image {
-    pub fn export_to_memory(&self, file_type: &str) -> RlBytesOwned {
+    pub fn export_to_memory(&self, file_type: FileType) -> impl std::ops::DerefMut<Target = [u8]> {
         let mut file_size: usize = 0;
         let data = unsafe {
             sys::ExportImageToMemory(
                 self.0,
-                CString::new(file_type).unwrap().as_ptr(),
+                file_type.as_cstr().as_ptr(),
                 (&raw mut file_size).cast(),
             )
         };
