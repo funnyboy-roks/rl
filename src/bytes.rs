@@ -21,6 +21,7 @@ impl RlBytesOwned {
     ///
     /// The pointer must have been allocated by RayLib (probaly MemAlloc)
     pub(crate) unsafe fn from_raw_parts(ptr: *mut u8, len: usize) -> Self {
+        assert!(!ptr.is_null() || len == 0);
         Self { ptr, len }
     }
 

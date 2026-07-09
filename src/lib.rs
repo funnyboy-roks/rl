@@ -4,10 +4,12 @@ use raylib_sys::{self as sys};
 
 pub use raylib_sys::{Color, KeyboardKey, MouseButton, Rectangle, Vector2};
 
+use crate::draw::{DrawTarget, DrawTargetFull};
 use crate::image::Image;
 use crate::window::Window;
 
 pub mod bytes;
+pub mod draw;
 pub mod image;
 pub mod rand;
 pub mod text;
@@ -15,7 +17,8 @@ pub mod window;
 
 pub mod prelude {
     pub use crate::{
-        Bounded, Color, DrawTarget, KeyboardKey, MouseButton, Rectangle, Texture2D, Vector2,
+        Bounded, Color, KeyboardKey, MouseButton, Rectangle, Texture2D, Vector2,
+        draw::{DrawTarget, DrawTargetFull},
         image::{FileType, Image},
         rand::Random,
         window::{ConfigFlags, Window},
@@ -25,22 +28,12 @@ pub mod prelude {
 pub trait Bounded {
     fn width(&self) -> u32;
     fn height(&self) -> u32;
-    fn size(&self) -> (u32, u32) {
-        (self.width(), self.height())
+    fn size(&self) -> Vector2 {
+        Vector2::new(self.width() as _, self.height() as _)
     }
     fn bounds(&self) -> sys::Rectangle {
         Rectangle::new(0., 0., self.width() as _, self.height() as _)
     }
-}
-
-pub trait DrawTarget {
-    fn clear_background(&mut self, color: Color);
-
-    fn draw_circle(&mut self, center: Vector2, radius: f32, color: Color);
-    fn draw_line(&mut self, from: Vector2, to: Vector2, thick: f32, color: Color);
-    fn draw_rectangle(&mut self, rect: Rectangle, color: Color);
-    fn draw_rectangle_lines(&mut self, rect: Rectangle, line_thick: f32, color: Color);
-    fn draw_text(&mut self, text: impl AsRef<str>, pos: Vector2, font_size: u32, color: Color);
 }
 
 #[derive(Debug)]
@@ -145,39 +138,6 @@ impl Frame<'_> {
         unsafe { sys::DrawFPS(x, y) }
     }
 
-    pub fn draw_texture(
-        &mut self,
-        texture: &Texture2D,
-        position: Vector2,
-        rotation: f32,
-        scale: f32,
-        tint: Color,
-    ) {
-        unsafe { sys::DrawTextureEx(texture.0, position, rotation, scale, tint) };
-    }
-
-    pub fn draw_texture_pro(
-        &mut self,
-        texture: &Texture2D,
-        src: Rectangle,
-        dst: Rectangle,
-        origin: Vector2,
-        rotation: f32,
-        tint: Color,
-    ) {
-        unsafe { sys::DrawTexturePro(texture.0, src, dst, origin, rotation, tint) };
-    }
-
-    pub fn draw_rectangle_pro(
-        &mut self,
-        rect: Rectangle,
-        origin: Vector2,
-        rotation: f32,
-        color: Color,
-    ) {
-        unsafe { sys::DrawRectanglePro(rect, origin, rotation, color) };
-    }
-
     pub fn is_key_pressed(&self, key: KeyboardKey) -> bool {
         unsafe { sys::IsKeyPressed(key as _) }
     }
@@ -236,12 +196,27 @@ impl DrawTarget for Frame<'_> {
         unsafe { sys::ClearBackground(color) }
     }
 
-    fn draw_circle(&mut self, center: Vector2, radius: f32, color: Color) {
+    fn draw_pixel(&mut self, positon: impl Into<Vector2>, color: Color) {
+        unsafe { sys::DrawPixelV(positon.into(), color) }
+    }
+
+    fn draw_line(
+        &mut self,
+        from: impl Into<Vector2>,
+        to: impl Into<Vector2>,
+        thick: f32,
+        color: Color,
+    ) {
+        unsafe { sys::DrawLineEx(from.into(), to.into(), thick, color) };
+    }
+
+    fn draw_circle(&mut self, center: impl Into<Vector2>, radius: f32, color: Color) {
+        let center = center.into();
         unsafe { sys::DrawCircle(center.x as _, center.y as _, radius, color) };
     }
 
-    fn draw_line(&mut self, from: Vector2, to: Vector2, thick: f32, color: Color) {
-        unsafe { sys::DrawLineEx(from, to, thick, color) };
+    fn draw_circle_lines(&mut self, center: impl Into<Vector2>, radius: f32, color: Color) {
+        unsafe { sys::DrawCircleLinesV(center.into(), radius, color) }
     }
 
     fn draw_rectangle(&mut self, rect: Rectangle, color: Color) {
@@ -252,11 +227,389 @@ impl DrawTarget for Frame<'_> {
         unsafe { sys::DrawRectangleLinesEx(rect, line_thick, color) };
     }
 
-    fn draw_text(&mut self, text: impl AsRef<str>, pos: Vector2, font_size: u32, color: Color) {
+    fn draw_triangle(
+        &mut self,
+        p1: impl Into<Vector2>,
+        p2: impl Into<Vector2>,
+        p3: impl Into<Vector2>,
+        color: Color,
+    ) {
+        unsafe { sys::DrawTriangle(p1.into(), p2.into(), p3.into(), color) };
+    }
+
+    fn draw_triangle_lines(
+        &mut self,
+        p1: impl Into<Vector2>,
+        p2: impl Into<Vector2>,
+        p3: impl Into<Vector2>,
+        color: Color,
+    ) {
+        unsafe { sys::DrawTriangleLines(p1.into(), p2.into(), p3.into(), color) };
+    }
+
+    fn draw_triangle_fan(&mut self, points: &[Vector2], color: Color) {
+        unsafe { sys::DrawTriangleFan(points.as_ptr(), points.len() as _, color) };
+    }
+
+    fn draw_triangle_strip(&mut self, points: &[Vector2], color: Color) {
+        unsafe { sys::DrawTriangleStrip(points.as_ptr(), points.len() as _, color) };
+    }
+
+    fn draw_text(
+        &mut self,
+        text: impl AsRef<str>,
+        pos: impl Into<Vector2>,
+        font_size: u32,
+        color: Color,
+    ) {
         let text = CString::new(text.as_ref()).expect("str has no null");
+        let pos = pos.into();
         unsafe { sys::DrawText(text.as_ptr(), pos.x as _, pos.y as _, font_size as _, color) };
     }
 }
+
+impl DrawTargetFull for Frame<'_> {
+    fn draw_line_strip(&mut self, points: &[Vector2], color: Color) {
+        unsafe { sys::DrawLineStrip(points.as_ptr(), points.len() as _, color) };
+    }
+
+    fn draw_line_bezier(
+        &mut self,
+        start: impl Into<Vector2>,
+        end: impl Into<Vector2>,
+        thick: f32,
+        color: Color,
+    ) {
+        unsafe { sys::DrawLineBezier(start.into(), end.into(), thick, color) };
+    }
+
+    fn draw_line_dashed(
+        &mut self,
+        start: impl Into<Vector2>,
+        end: impl Into<Vector2>,
+        dash_size: u32,
+        space_size: u32,
+        color: Color,
+    ) {
+        unsafe {
+            sys::DrawLineDashed(
+                start.into(),
+                end.into(),
+                dash_size as _,
+                space_size as _,
+                color,
+            )
+        };
+    }
+
+    fn draw_circle_gradient(
+        &mut self,
+        center: impl Into<Vector2>,
+        radius: f32,
+        inner: Color,
+        outer: Color,
+    ) {
+        unsafe { sys::DrawCircleGradient(center.into(), radius, inner, outer) };
+    }
+
+    fn draw_circle_sector(
+        &mut self,
+        center: impl Into<Vector2>,
+        radius: f32,
+        start_angle: f32,
+        end_angle: f32,
+        segments: u32,
+        color: Color,
+    ) {
+        unsafe {
+            sys::DrawCircleSector(
+                center.into(),
+                radius,
+                start_angle,
+                end_angle,
+                segments as _,
+                color,
+            )
+        };
+    }
+
+    fn draw_circle_sector_lines(
+        &mut self,
+        center: impl Into<Vector2>,
+        radius: f32,
+        start_angle: f32,
+        end_angle: f32,
+        segments: u32,
+        color: Color,
+    ) {
+        unsafe {
+            sys::DrawCircleSectorLines(
+                center.into(),
+                radius,
+                start_angle,
+                end_angle,
+                segments as _,
+                color,
+            )
+        };
+    }
+
+    fn draw_ellipse(
+        &mut self,
+        center: impl Into<Vector2>,
+        radius: impl Into<Vector2>,
+        color: Color,
+    ) {
+        let radius = radius.into();
+        unsafe { sys::DrawEllipseV(center.into(), radius.x, radius.y, color) };
+    }
+
+    fn draw_ellipse_lines(
+        &mut self,
+        center: impl Into<Vector2>,
+        radius: impl Into<Vector2>,
+        color: Color,
+    ) {
+        let radius = radius.into();
+        unsafe { sys::DrawEllipseLinesV(center.into(), radius.x, radius.y, color) };
+    }
+
+    fn draw_ring(
+        &mut self,
+        center: impl Into<Vector2>,
+        inner_radius: f32,
+        outer_radius: f32,
+        start_angle: f32, // TODO: Range?
+        end_angle: f32,
+        segments: u32,
+        color: Color,
+    ) {
+        unsafe {
+            sys::DrawRing(
+                center.into(),
+                inner_radius,
+                outer_radius,
+                start_angle,
+                end_angle,
+                segments as _,
+                color,
+            )
+        };
+    }
+
+    fn draw_ring_lines(
+        &mut self,
+        center: impl Into<Vector2>,
+        inner_radius: f32,
+        outer_radius: f32,
+        start_angle: f32, // TODO: Range?
+        end_angle: f32,
+        segments: u32,
+        color: Color,
+    ) {
+        unsafe {
+            sys::DrawRingLines(
+                center.into(),
+                inner_radius,
+                outer_radius,
+                start_angle,
+                end_angle,
+                segments as _,
+                color,
+            )
+        };
+    }
+
+    fn draw_rectangle_gradient(
+        &mut self,
+        rect: Rectangle,
+        top_left: Color,
+        top_right: Color,
+        bottom_left: Color,
+        bottom_right: Color,
+    ) {
+        unsafe {
+            sys::DrawRectangleGradientEx(rect, top_left, top_right, bottom_left, bottom_right)
+        };
+    }
+
+    fn draw_rectangle_pro(
+        &mut self,
+        rect: Rectangle,
+        origin: impl Into<Vector2>,
+        rotation: f32,
+        color: Color,
+    ) {
+        unsafe { sys::DrawRectanglePro(rect, origin.into(), rotation, color) };
+    }
+
+    fn draw_rectangle_rounded(
+        &mut self,
+        rect: Rectangle,
+        roundness: f32,
+        segments: u32,
+        color: Color,
+    ) {
+        unsafe { sys::DrawRectangleRounded(rect, roundness, segments as _, color) };
+    }
+
+    fn draw_rectangle_rounded_lines(
+        &mut self,
+        rect: Rectangle,
+        roundness: f32,
+        segments: u32,
+        thick: f32,
+        color: Color,
+    ) {
+        unsafe { sys::DrawRectangleRoundedLinesEx(rect, roundness, segments as _, thick, color) };
+    }
+
+    fn draw_poly(
+        &mut self,
+        center: impl Into<Vector2>,
+        sides: u32,
+        radius: f32,
+        rotation: f32,
+        color: Color,
+    ) {
+        unsafe { sys::DrawPoly(center.into(), sides as _, radius, rotation, color) };
+    }
+
+    fn draw_poly_lines(
+        &mut self,
+        center: impl Into<Vector2>,
+        sides: u32,
+        radius: f32,
+        rotation: f32,
+        thick: f32,
+        color: Color,
+    ) {
+        unsafe { sys::DrawPolyLinesEx(center.into(), sides as _, radius, rotation, thick, color) };
+    }
+
+    fn draw_spline_linear(&mut self, points: &[Vector2], thick: f32, color: Color) {
+        unsafe { sys::DrawSplineLinear(points.as_ptr(), points.len() as _, thick, color) };
+    }
+
+    fn draw_spline_basis(&mut self, points: &[Vector2], thick: f32, color: Color) {
+        unsafe { sys::DrawSplineBasis(points.as_ptr(), points.len() as _, thick, color) };
+    }
+
+    fn draw_spline_catmull_rom(&mut self, points: &[Vector2], thick: f32, color: Color) {
+        unsafe { sys::DrawSplineCatmullRom(points.as_ptr(), points.len() as _, thick, color) };
+    }
+
+    fn draw_spline_bezier_quadratic(&mut self, points: &[Vector2], thick: f32, color: Color) {
+        unsafe { sys::DrawSplineBezierQuadratic(points.as_ptr(), points.len() as _, thick, color) };
+    }
+
+    fn draw_spline_bezier_cubic(&mut self, points: &[Vector2], thick: f32, color: Color) {
+        unsafe { sys::DrawSplineBezierCubic(points.as_ptr(), points.len() as _, thick, color) };
+    }
+
+    fn draw_spline_segment_linear(
+        &mut self,
+        p1: impl Into<Vector2>,
+        p2: impl Into<Vector2>,
+        thick: f32,
+        color: Color,
+    ) {
+        unsafe { sys::DrawSplineSegmentLinear(p1.into(), p2.into(), thick, color) };
+    }
+
+    fn draw_spline_segment_basis(
+        &mut self,
+        p1: impl Into<Vector2>,
+        p2: impl Into<Vector2>,
+        p3: impl Into<Vector2>,
+        p4: impl Into<Vector2>,
+        thick: f32,
+        color: Color,
+    ) {
+        unsafe {
+            sys::DrawSplineSegmentBasis(p1.into(), p2.into(), p3.into(), p4.into(), thick, color)
+        };
+    }
+
+    fn draw_spline_segment_catmull_rom(
+        &mut self,
+        p1: impl Into<Vector2>,
+        p2: impl Into<Vector2>,
+        p3: impl Into<Vector2>,
+        p4: impl Into<Vector2>,
+        thick: f32,
+        color: Color,
+    ) {
+        unsafe {
+            sys::DrawSplineSegmentCatmullRom(
+                p1.into(),
+                p2.into(),
+                p3.into(),
+                p4.into(),
+                thick,
+                color,
+            )
+        };
+    }
+
+    fn draw_spline_segment_bezier_quadratic(
+        &mut self,
+        p1: impl Into<Vector2>,
+        p2: impl Into<Vector2>,
+        p3: impl Into<Vector2>,
+        thick: f32,
+        color: Color,
+    ) {
+        unsafe {
+            sys::DrawSplineSegmentBezierQuadratic(p1.into(), p2.into(), p3.into(), thick, color)
+        };
+    }
+
+    fn draw_spline_segment_bezier_cubic(
+        &mut self,
+        p1: impl Into<Vector2>,
+        p2: impl Into<Vector2>,
+        p3: impl Into<Vector2>,
+        p4: impl Into<Vector2>,
+        thick: f32,
+        color: Color,
+    ) {
+        unsafe {
+            sys::DrawSplineSegmentBezierCubic(
+                p1.into(),
+                p2.into(),
+                p3.into(),
+                p4.into(),
+                thick,
+                color,
+            )
+        };
+    }
+
+    fn draw_texture(
+        &mut self,
+        texture: &Texture2D,
+        position: impl Into<Vector2>,
+        rotation: f32,
+        scale: f32,
+        tint: Color,
+    ) {
+        unsafe { sys::DrawTextureEx(texture.0, position.into(), rotation, scale, tint) };
+    }
+
+    fn draw_texture_pro(
+        &mut self,
+        texture: &Texture2D,
+        src: Rectangle,
+        dst: Rectangle,
+        origin: impl Into<Vector2>,
+        rotation: f32,
+        tint: Color,
+    ) {
+        unsafe { sys::DrawTexturePro(texture.0, src, dst, origin.into(), rotation, tint) };
+    }
+}
+
 #[derive(Debug)]
 pub struct Texture2D(sys::Texture2D);
 

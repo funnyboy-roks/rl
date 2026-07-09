@@ -1,5 +1,3 @@
-use std::f32::consts::{PI, TAU};
-
 // https://github.com/raysan5/raylib/blob/master/examples/core/core_basic_window.c
 use rl::prelude::*;
 
@@ -19,20 +17,26 @@ impl Particle {
             return false;
         }
 
-        frame.draw_rectangle_pro(
-            Rectangle {
-                x: self.pos.x,
-                y: self.pos.y,
-                width: self.size,
-                height: self.size,
-            },
-            Vector2::new(self.size / 2., self.size / 2.),
-            // self.pos.add_value(self.size / 2.),
-            self.rotation,
-            self.color.alpha(1. - self.age / self.max_age),
-        );
+        let rect = Rectangle {
+            x: self.pos.x,
+            y: self.pos.y,
+            width: self.size,
+            height: self.size,
+        };
+
+        frame
+            .draw_rectangle_builder()
+            .rectangle(rect)
+            .rotation((self.size / 2., self.size / 2.), self.rotation)
+            .color(self.color.alpha(1. - self.age / self.max_age))
+            .draw();
+
+        if !frame.bounds().check_collision_recs(rect) {
+            return false;
+        }
 
         self.pos += self.velocity * frame.get_time() * (1.5 - self.age / self.max_age);
+
         self.age += frame.get_time();
         self.rotation += 0.1;
 
@@ -80,7 +84,7 @@ fn main() {
         frame.draw_fps(10, 10);
         frame.draw_text(
             format!("Particles: {}", particles.len()),
-            Vector2::new(10., 10. + 20. + 5.),
+            (10., 10. + 20. + 5.),
             20,
             Color::RAYWHITE,
         );

@@ -23,27 +23,27 @@ pub enum FileType {
 impl FileType {
     pub const fn as_str(self) -> &'static str {
         match self {
-            FileType::Png => "png",
-            FileType::Bmp => "bmp",
-            FileType::Tga => "tga",
-            FileType::Jpg => "jpg",
-            FileType::Gif => "gif",
-            FileType::Pic => "pic",
-            FileType::Ppm => "ppm",
-            FileType::Psd => "psd",
+            FileType::Png => ".png",
+            FileType::Bmp => ".bmp",
+            FileType::Tga => ".tga",
+            FileType::Jpg => ".jpg",
+            FileType::Gif => ".gif",
+            FileType::Pic => ".pic",
+            FileType::Ppm => ".ppm",
+            FileType::Psd => ".psd",
         }
     }
 
     pub(crate) const fn as_cstr(self) -> &'static CStr {
         match self {
-            FileType::Png => c"png",
-            FileType::Bmp => c"bmp",
-            FileType::Tga => c"tga",
-            FileType::Jpg => c"jpg",
-            FileType::Gif => c"gif",
-            FileType::Pic => c"pic",
-            FileType::Ppm => c"ppm",
-            FileType::Psd => c"psd",
+            FileType::Png => c".png",
+            FileType::Bmp => c".bmp",
+            FileType::Tga => c".tga",
+            FileType::Jpg => c".jpg",
+            FileType::Gif => c".gif",
+            FileType::Pic => c".pic",
+            FileType::Ppm => c".ppm",
+            FileType::Psd => c".psd",
         }
     }
 
@@ -238,6 +238,25 @@ impl Image {
     pub fn draw_image(&mut self, image: &Image, src: Rectangle, dst: Rectangle, tint: Color) {
         unsafe { sys::ImageDraw(&raw mut self.0, image.0, src, dst, tint) };
     }
+
+    pub fn draw_triangle_ex(
+        &mut self,
+        p1: (impl Into<Vector2>, Color),
+        p2: (impl Into<Vector2>, Color),
+        p3: (impl Into<Vector2>, Color),
+    ) {
+        unsafe {
+            sys::ImageDrawTriangleEx(
+                &raw mut self.0,
+                p1.0.into(),
+                p2.0.into(),
+                p3.0.into(),
+                p1.1,
+                p2.1,
+                p3.1,
+            )
+        };
+    }
 }
 
 impl Bounded for Image {
@@ -255,7 +274,22 @@ impl DrawTarget for Image {
         unsafe { sys::ImageClearBackground(&raw mut self.0, color) };
     }
 
-    fn draw_circle(&mut self, center: Vector2, radius: f32, color: Color) {
+    fn draw_pixel(&mut self, position: impl Into<Vector2>, color: Color) {
+        unsafe { sys::ImageDrawPixelV(&raw mut self.0, position.into(), color) };
+    }
+
+    fn draw_line(
+        &mut self,
+        from: impl Into<Vector2>,
+        to: impl Into<Vector2>,
+        thick: f32,
+        color: Color,
+    ) {
+        unsafe { sys::ImageDrawLineEx(&raw mut self.0, from.into(), to.into(), thick as _, color) };
+    }
+
+    fn draw_circle(&mut self, center: impl Into<Vector2>, radius: f32, color: Color) {
+        let center = center.into();
         unsafe {
             sys::ImageDrawCircle(
                 &raw mut self.0,
@@ -267,8 +301,8 @@ impl DrawTarget for Image {
         };
     }
 
-    fn draw_line(&mut self, from: Vector2, to: Vector2, thick: f32, color: Color) {
-        unsafe { sys::ImageDrawLineEx(&raw mut self.0, from, to, thick as _, color) };
+    fn draw_circle_lines(&mut self, center: impl Into<Vector2>, radius: f32, color: Color) {
+        unsafe { sys::ImageDrawCircleLinesV(&raw mut self.0, center.into(), radius as _, color) };
     }
 
     fn draw_rectangle(&mut self, rect: Rectangle, color: Color) {
@@ -279,8 +313,49 @@ impl DrawTarget for Image {
         unsafe { sys::ImageDrawRectangleLines(&raw mut self.0, rect, line_thick as _, color) };
     }
 
-    fn draw_text(&mut self, text: impl AsRef<str>, pos: Vector2, font_size: u32, color: Color) {
+    fn draw_triangle(
+        &mut self,
+        p1: impl Into<Vector2>,
+        p2: impl Into<Vector2>,
+        p3: impl Into<Vector2>,
+        color: Color,
+    ) {
+        self.draw_triangle_ex((p1, color), (p2, color), (p3, color));
+    }
+
+    fn draw_triangle_lines(
+        &mut self,
+        p1: impl Into<Vector2>,
+        p2: impl Into<Vector2>,
+        p3: impl Into<Vector2>,
+        color: Color,
+    ) {
+        unsafe {
+            sys::ImageDrawTriangleLines(&raw mut self.0, p1.into(), p2.into(), p3.into(), color)
+        };
+    }
+
+    fn draw_triangle_fan(&mut self, points: &[Vector2], color: Color) {
+        unsafe {
+            sys::ImageDrawTriangleFan(&raw mut self.0, points.as_ptr(), points.len() as _, color)
+        };
+    }
+
+    fn draw_triangle_strip(&mut self, points: &[Vector2], color: Color) {
+        unsafe {
+            sys::ImageDrawTriangleStrip(&raw mut self.0, points.as_ptr(), points.len() as _, color)
+        };
+    }
+
+    fn draw_text(
+        &mut self,
+        text: impl AsRef<str>,
+        pos: impl Into<Vector2>,
+        font_size: u32,
+        color: Color,
+    ) {
         let text = CString::new(text.as_ref()).expect("str has no null");
+        let pos = pos.into();
         unsafe {
             sys::ImageDrawText(
                 &raw mut self.0,
