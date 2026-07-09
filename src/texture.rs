@@ -1,212 +1,198 @@
-use std::sync::atomic::Ordering;
-use std::{ffi::CString, marker::PhantomData};
+use std::{ffi::CString, path::Path, sync::atomic::Ordering};
 
 use raylib_sys::{self as sys};
 
-pub use raylib_sys::{Color, KeyboardKey, MouseButton, Rectangle, Vector2};
+use crate::{
+    Bounded, Color, Rectangle, Vector2,
+    draw::{DrawTarget, DrawTargetFull},
+    globals::DRAWING_TO_TEXTURE,
+    image::Image,
+};
 
-use crate::draw::{DrawTarget, DrawTargetFull};
-use crate::globals::{DRAWING_TO_TEXTURE, WINDOW_INITIALISED};
-use crate::image::Image;
-use crate::texture::Texture2D;
-use crate::window::Window;
+#[derive(Debug)]
+#[repr(transparent)]
+pub struct Texture2D(sys::Texture2D);
 
-pub mod bytes;
-pub mod draw;
-mod globals;
-pub mod image;
-pub mod rand;
-pub mod text;
-pub mod texture;
-pub mod window;
-
-pub mod prelude {
-    pub use crate::{
-        Bounded, Color, KeyboardKey, MouseButton, Rectangle, Vector2,
-        draw::{DrawTarget, DrawTargetFull},
-        image::{FileType, Image, ImageResizeMode},
-        rand::Random,
-        texture::{RenderTexture2D, Texture2D},
-        window::{ConfigFlags, Window},
-    };
+impl Drop for Texture2D {
+    fn drop(&mut self) {
+        unsafe { sys::UnloadTexture(self.0) };
+    }
 }
 
-pub trait Bounded {
-    fn width(&self) -> u32;
-    fn height(&self) -> u32;
-    fn size(&self) -> Vector2 {
-        Vector2::new(self.width() as _, self.height() as _)
+impl Bounded for Texture2D {
+    fn width(&self) -> u32 {
+        self.0.width as _
     }
-    fn bounds(&self) -> sys::Rectangle {
-        Rectangle::new(0., 0., self.width() as _, self.height() as _)
+
+    fn height(&self) -> u32 {
+        self.0.height as _
+    }
+}
+
+impl AsRef<Texture2D> for &Texture2D {
+    fn as_ref(&self) -> &Texture2D {
+        self
+    }
+}
+
+impl Texture2D {
+    pub(crate) fn from_ref_sys(texture: &sys::Texture2D) -> &Self {
+        assert!(Self::is_valid(*texture));
+        // SAFETY: Texture2D is a transparent wrapper around the raylib one
+        unsafe { std::mem::transmute(texture) }
+    }
+
+    pub(crate) fn from_sys(texture: sys::Texture2D) -> Option<Self> {
+        Self::is_valid(texture).then_some(Self(texture))
+    }
+
+    pub(crate) fn inner(&self) -> sys::Texture2D {
+        self.0
+    }
+
+    pub(crate) fn is_valid(texture: sys::Texture2D) -> bool {
+        unsafe { sys::IsTextureValid(texture) }
+    }
+
+    // https://github.com/raysan5/raylib/blob/master/src/rtextures.c#L4229
+    pub fn load(file: impl AsRef<Path>) -> std::io::Result<Self> {
+        let image = Image::load(file)?;
+        Ok(Self::from_image(&image))
+    }
+
+    pub fn from_image(image: &Image) -> Self {
+        Self::from_sys(unsafe { sys::LoadTextureFromImage(image.inner()) })
+            .expect("Texture is valid if the image is valid")
     }
 }
 
 #[derive(Debug)]
-pub struct Mouse<'frame>(PhantomData<&'frame ()>);
+pub struct RenderTexture2D(sys::RenderTexture2D);
 
-impl Mouse<'_> {
-    pub fn position(&self) -> Vector2 {
-        unsafe { sys::GetMousePosition() }
-    }
-
-    pub fn delta(&self) -> Vector2 {
-        unsafe { sys::GetMouseDelta() }
-    }
-
-    pub fn wheel_move(&self) -> f32 {
-        unsafe { sys::GetMouseWheelMove() }
-    }
-
-    pub fn wheel_move_v(&self) -> Vector2 {
-        unsafe { sys::GetMouseWheelMoveV() }
-    }
-
-    pub fn show_cursor(&mut self) {
-        unsafe { sys::ShowCursor() }
-    }
-
-    pub fn hide_cursor(&mut self) {
-        unsafe { sys::HideCursor() }
-    }
-
-    pub fn is_cursor_hidden(&self) -> bool {
-        unsafe { sys::IsCursorHidden() }
-    }
-
-    pub fn enable_cursor(&mut self) {
-        unsafe { sys::EnableCursor() }
-    }
-
-    pub fn disable_cursor(&mut self) {
-        unsafe { sys::DisableCursor() }
-    }
-
-    pub fn is_cursor_on_screen(&self) -> bool {
-        unsafe { sys::IsCursorOnScreen() }
-    }
-
-    pub fn is_button_pressed(&self, button: MouseButton) -> bool {
-        unsafe { sys::IsMouseButtonPressed(button as _) }
-    }
-
-    pub fn is_button_down(&self, button: MouseButton) -> bool {
-        unsafe { sys::IsMouseButtonDown(button as _) }
-    }
-
-    pub fn is_button_released(&self, button: MouseButton) -> bool {
-        unsafe { sys::IsMouseButtonReleased(button as _) }
-    }
-
-    pub fn is_button_up(&self, button: MouseButton) -> bool {
-        unsafe { sys::IsMouseButtonUp(button as _) }
-    }
-}
-
-pub struct Frame<'window> {
-    window: &'window mut Window,
-}
-
-impl Frame<'_> {
-    #[inline]
-    pub fn can_draw(&self) -> bool {
-        // window is initialised and we are not drawing to a texture
-        WINDOW_INITIALISED.load(Ordering::Acquire) && !DRAWING_TO_TEXTURE.load(Ordering::Acquire)
-    }
-
-    #[inline]
-    fn assert_can_draw(&self) {
-        assert!(
-            WINDOW_INITIALISED.load(Ordering::Acquire),
-            "Attempting to draw without a window initialised"
-        );
-        assert!(
-            !DRAWING_TO_TEXTURE.load(Ordering::Acquire),
-            "Cannot draw to frame while drawing to texture"
-        );
-        assert!(self.can_draw());
-    }
-
-    pub fn window(&self) -> &Window {
-        self.window
-    }
-
-    pub fn window_mut(&mut self) -> &mut Window {
-        self.window
-    }
-
-    pub fn mouse<'f>(&'f self) -> &'f Mouse<'f> {
-        &Mouse(PhantomData)
-    }
-
-    pub fn mouse_mut<'f>(&'f mut self) -> &'f mut Mouse<'f> {
-        // SAFETY: This is wildly unsafe, but since Mouse is zero-sized and we never use the value
-        // of the reference itself, it's fine
-        #[allow(mutable_transmutes)]
-        unsafe {
-            std::mem::transmute(&Mouse(PhantomData))
-        }
-    }
-
-    pub fn get_time(&self) -> f32 {
-        unsafe { sys::GetFrameTime() }
-    }
-
-    /// The number of frames that have run
-    pub fn count(&self) -> u64 {
-        // Because we increment at the start, we need to subtract one for an accurate count
-        self.window().frame_count - 1
-    }
-
-    pub fn draw_fps(&mut self, x: i32, y: i32) {
-        self.assert_can_draw();
-        unsafe { sys::DrawFPS(x, y) }
-    }
-
-    pub fn is_key_pressed(&self, key: KeyboardKey) -> bool {
-        unsafe { sys::IsKeyPressed(key as _) }
-    }
-
-    pub fn is_key_pressed_repeat(&self, key: KeyboardKey) -> bool {
-        unsafe { sys::IsKeyPressedRepeat(key as _) }
-    }
-
-    pub fn is_key_down(&self, key: KeyboardKey) -> bool {
-        unsafe { sys::IsKeyDown(key as _) }
-    }
-
-    pub fn is_key_released(&self, key: KeyboardKey) -> bool {
-        unsafe { sys::IsKeyReleased(key as _) }
-    }
-
-    pub fn is_key_up(&self, key: KeyboardKey) -> bool {
-        unsafe { sys::IsKeyUp(key as _) }
-    }
-
-    // TODO
-    // pub fn get_key_pressed(&self, key: KeyboardKey) -> KeyboardKey {
-    //     unsafe { sys::GetKeyPressed() }
-    // }
-}
-
-impl Drop for Frame<'_> {
+impl Drop for RenderTexture2D {
     fn drop(&mut self) {
-        self.window.prev_mouse = Some(self.mouse().position());
-        unsafe { sys::EndDrawing() };
+        unsafe { sys::UnloadRenderTexture(self.0) };
     }
 }
 
-impl Bounded for Frame<'_> {
+impl Bounded for RenderTexture2D {
     fn width(&self) -> u32 {
-        self.window().width()
+        self.0.texture.width as _
     }
 
     fn height(&self) -> u32 {
-        self.window().height()
+        self.0.texture.height as _
     }
 }
 
-impl DrawTarget for Frame<'_> {
+impl RenderTexture2D {
+    pub(crate) fn from_sys(texture: sys::RenderTexture2D) -> Option<Self> {
+        Self::is_valid(texture).then_some(Self(texture))
+    }
+
+    pub(crate) fn inner(&self) -> sys::RenderTexture2D {
+        self.0
+    }
+
+    pub(crate) fn is_valid(texture: sys::RenderTexture2D) -> bool {
+        unsafe { sys::IsRenderTextureValid(texture) }
+    }
+
+    /// Create a new render texture
+    ///
+    /// # Panics
+    ///
+    /// If failed to be created
+    pub fn new(width: u32, height: u32) -> Self {
+        Self::try_new(width, height).expect("Failed to create render texture")
+    }
+
+    /// Attempt to create a new render texture and return None if it can't be created
+    pub fn try_new(width: u32, height: u32) -> Option<Self> {
+        Self::from_sys(unsafe { sys::LoadRenderTexture(width as _, height as _) })
+    }
+
+    /// Color buffer attachment texture
+    pub fn texture(&self) -> &Texture2D {
+        Texture2D::from_ref_sys(&self.0.texture)
+    }
+
+    /// Depth buffer attachment texture
+    pub fn depth(&self) -> &Texture2D {
+        Texture2D::from_ref_sys(&self.0.texture)
+    }
+
+    /// OpenGL framebuffer object id
+    pub fn id(&self) -> u32 {
+        self.0.id
+    }
+
+    pub fn draw_with<'t, F>(&'t mut self, f: F)
+    where
+        F: FnOnce(&mut DrawRenderTexture2D<'t>),
+    {
+        let mut ctx = self.draw();
+        f(&mut ctx);
+        drop(ctx);
+    }
+
+    // TODO: link to frame in some way?
+    fn draw<'t>(&'t mut self) -> DrawRenderTexture2D<'t> {
+        DrawRenderTexture2D::new(self)
+    }
+}
+
+pub struct DrawRenderTexture2D<'texture> {
+    texture: &'texture mut RenderTexture2D,
+}
+
+impl DrawRenderTexture2D<'_> {
+    #[inline]
+    fn assert_can_draw(&self) {
+        assert!(
+            DRAWING_TO_TEXTURE.load(Ordering::Acquire),
+            "Attempting to draw to texture without calling BeginTextureMode"
+        );
+    }
+}
+
+impl Drop for DrawRenderTexture2D<'_> {
+    fn drop(&mut self) {
+        if DRAWING_TO_TEXTURE
+            .compare_exchange(true, false, Ordering::Acquire, Ordering::Acquire)
+            .is_err()
+        {
+            panic!("Attempted to end texture drawing without calling BeginTextureMode");
+        }
+        // SAFETY: We call this in the constructor
+        unsafe { sys::EndTextureMode() };
+    }
+}
+
+impl<'t> DrawRenderTexture2D<'t> {
+    fn new(texture: &'t mut RenderTexture2D) -> Self {
+        if DRAWING_TO_TEXTURE
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Acquire)
+            .is_err()
+        {
+            panic!("Only one texture may be drawn to at a time.");
+        }
+        unsafe { sys::BeginTextureMode(texture.inner()) };
+        Self { texture }
+    }
+}
+
+impl Bounded for DrawRenderTexture2D<'_> {
+    fn width(&self) -> u32 {
+        self.texture.width()
+    }
+
+    fn height(&self) -> u32 {
+        self.texture.height()
+    }
+}
+
+impl DrawTarget for DrawRenderTexture2D<'_> {
     fn clear_background(&mut self, color: Color) {
         self.assert_can_draw();
         unsafe { sys::ClearBackground(color) }
@@ -295,7 +281,7 @@ impl DrawTarget for Frame<'_> {
     }
 }
 
-impl DrawTargetFull for Frame<'_> {
+impl DrawTargetFull for DrawRenderTexture2D<'_> {
     fn draw_line_strip(&mut self, points: &[Vector2], color: Color) {
         self.assert_can_draw();
         unsafe { sys::DrawLineStrip(points.as_ptr(), points.len() as _, color) };

@@ -1,8 +1,11 @@
-use std::ffi::{CStr, CString};
+use std::{
+    ffi::{CStr, CString},
+    sync::atomic::Ordering,
+};
 
 use raylib_sys as sys;
 
-use crate::{Frame, Image, Vector2};
+use crate::{Bounded, Frame, Image, Vector2, globals::WINDOW_INITIALISED};
 
 #[derive(Debug)]
 pub struct Window {
@@ -14,8 +17,24 @@ pub struct Window {
 
 impl Drop for Window {
     fn drop(&mut self) {
+        if WINDOW_INITIALISED
+            .compare_exchange(true, false, Ordering::Acquire, Ordering::Acquire)
+            .is_err()
+        {
+            panic!("Attempted to close window without one initialised");
+        }
         // SAFETY: the only way to get a window is to have called InitWindow
         unsafe { sys::CloseWindow() };
+    }
+}
+
+impl Bounded for Window {
+    fn width(&self) -> u32 {
+        unsafe { sys::GetRenderWidth() }.try_into().unwrap()
+    }
+
+    fn height(&self) -> u32 {
+        unsafe { sys::GetRenderHeight() }.try_into().unwrap()
     }
 }
 
@@ -52,6 +71,13 @@ macro_rules! gen_getter {
 
 impl Window {
     pub fn init(width: u32, height: u32, title: impl AsRef<str>) -> Window {
+        if WINDOW_INITIALISED
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Acquire)
+            .is_err()
+        {
+            panic!("Only one window may be initialised at a time.");
+        }
+
         let title = CString::new(title.as_ref()).expect("str can't contain null");
         // SAFETY: title is heap allocated c-string
         unsafe { sys::InitWindow(width as _, height as _, title.as_ptr()) };

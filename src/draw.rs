@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::{Bounded, Color, Rectangle, Texture2D, Vector2};
 
 // basic item that image, frame, and target can use
@@ -186,18 +188,17 @@ enum Destination {
     Scale(Vector2, f32),
 }
 
-#[derive(Clone, Copy)]
-pub struct DrawTextureBuilder<'texture, T> {
-    target: T,
-    texture: Option<&'texture Texture2D>,
+pub struct DrawTextureBuilder<'target, 'tex, T> {
+    target: &'target mut T,
+    texture: Option<&'tex Texture2D>,
     source: Option<Rectangle>,
     destination: Option<Destination>,
     rotation: (Vector2, f32),
     tint: Color,
 }
 
-impl<'texture, T> DrawTextureBuilder<'texture, T> {
-    fn new(target: T) -> Self {
+impl<'target, 'tex, T> DrawTextureBuilder<'target, 'tex, T> {
+    fn new(target: &'target mut T) -> Self {
         Self {
             target,
             texture: None,
@@ -208,7 +209,7 @@ impl<'texture, T> DrawTextureBuilder<'texture, T> {
         }
     }
 
-    pub fn texture(&mut self, texture: &'texture Texture2D) -> &mut Self {
+    pub fn texture(&mut self, texture: &'tex Texture2D) -> &mut Self {
         self.texture = Some(texture);
         self
     }
@@ -243,8 +244,10 @@ impl<'texture, T> DrawTextureBuilder<'texture, T> {
     pub fn draw(&mut self)
     where
         T: DrawTargetFull,
+        Self: 'target,
     {
         expect!(DrawTextureBuilder => self [texture, destination]);
+
         let source = self.source.unwrap_or(texture.bounds());
 
         self.target.draw_texture_pro(
@@ -464,12 +467,7 @@ pub trait DrawTargetFull: DrawTarget + Sized {
         rotation: f32,
         tint: Color,
     );
-    fn draw_texture_builder<'dt, 'texture>(
-        &'dt mut self,
-    ) -> DrawTextureBuilder<'texture, &'dt mut Self>
-    where
-        'dt: 'texture,
-    {
+    fn draw_texture_builder<'dt, 'tex>(&'dt mut self) -> DrawTextureBuilder<'dt, 'tex, Self> {
         DrawTextureBuilder::new(self)
     }
 }

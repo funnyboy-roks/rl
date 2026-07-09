@@ -1,52 +1,57 @@
 use std::ops::{Deref, DerefMut};
 
-use raylib_sys as sys;
+type UnloadFn<T> = fn(*mut T);
 
 #[derive(Debug)]
 /// Bytes that are allocated and returned by RayLib
-pub struct RlBytesOwned {
-    ptr: *mut u8,
+pub struct RlSlice<T> {
+    ptr: *mut T,
     len: usize,
+    free: UnloadFn<T>,
 }
 
-impl Drop for RlBytesOwned {
+impl<T> Drop for RlSlice<T> {
     fn drop(&mut self) {
-        // SAFETY: from_raw_parts requires that the pointer was allocated by RayLib
-        unsafe { sys::MemFree(self.ptr.cast()) };
+        assert!(!std::mem::needs_drop::<T>());
+        (self.free)(self.ptr.cast());
     }
 }
 
-impl RlBytesOwned {
+impl<T> RlSlice<T> {
     /// # SAFETY
     ///
-    /// The pointer must have been allocated by RayLib (probaly MemAlloc)
-    pub(crate) unsafe fn from_raw_parts(ptr: *mut u8, len: usize) -> Self {
+    /// The pointer must have been allocated by RayLib and is intended to be freed with the
+    /// `free` function
+    pub(crate) unsafe fn from_raw_parts(ptr: *mut T, len: usize, free: UnloadFn<T>) -> Self {
         assert!(!ptr.is_null() || len == 0);
-        Self { ptr, len }
+        Self { ptr, len, free }
     }
 
     /// Reallocate this as a rust vec
-    pub fn reallocate(self) -> Vec<u8> {
+    pub fn reallocate(self) -> Vec<T>
+    where
+        T: Clone,
+    {
         self.to_vec()
     }
 }
 
-impl AsRef<[u8]> for RlBytesOwned {
-    fn as_ref(&self) -> &[u8] {
+impl<T> AsRef<[T]> for RlSlice<T> {
+    fn as_ref(&self) -> &[T] {
         // SAFETY: required by constructor
         unsafe { std::slice::from_raw_parts(self.ptr, self.len) }
     }
 }
 
-impl Deref for RlBytesOwned {
-    type Target = [u8];
+impl<T> Deref for RlSlice<T> {
+    type Target = [T];
 
     fn deref(&self) -> &Self::Target {
         self.as_ref()
     }
 }
 
-impl DerefMut for RlBytesOwned {
+impl<T> DerefMut for RlSlice<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         // SAFETY: required by constructor
         unsafe { std::slice::from_raw_parts_mut(self.ptr, self.len) }
