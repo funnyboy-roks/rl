@@ -404,7 +404,7 @@ impl Image {
 
     /// Load image from GPU texture data
     pub fn from_texture(texture: &Texture2D) -> Self {
-        Self::from_sys(unsafe { sys::LoadImageFromTexture(texture.inner()) })
+        Self::from_sys(unsafe { sys::LoadImageFromTexture(*texture.inner()) })
             .expect("LoadImageFromTexture is infallible")
     }
 

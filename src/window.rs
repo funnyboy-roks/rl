@@ -109,7 +109,10 @@ impl Window {
     pub fn begin_drawing<'a>(&'a mut self) -> Frame<'a> {
         unsafe { sys::BeginDrawing() };
         self.frame_count += 1;
-        Frame { window: self }
+        Frame {
+            window: self,
+            resources: Vec::new(),
+        }
     }
 
     /// Helper method that calls WindowShouldClose and BeginDrawing

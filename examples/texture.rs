@@ -25,7 +25,7 @@ fn main() {
 
         frame
             .draw_texture_builder()
-            .texture(texture.texture())
+            .texture(&texture.texture())
             .position(center, 4.0)
             .rotation(texture_size * 2., rotation)
             .draw();

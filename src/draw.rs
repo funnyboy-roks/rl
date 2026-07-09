@@ -188,16 +188,16 @@ enum Destination {
     Scale(Vector2, f32),
 }
 
-pub struct DrawTextureBuilder<'target, 'tex, T> {
+pub struct DrawTextureBuilder<'target, T> {
     target: &'target mut T,
-    texture: Option<&'tex Texture2D>,
+    texture: Option<Texture2D>,
     source: Option<Rectangle>,
     destination: Option<Destination>,
     rotation: (Vector2, f32),
     tint: Color,
 }
 
-impl<'target, 'tex, T> DrawTextureBuilder<'target, 'tex, T> {
+impl<'target, T> DrawTextureBuilder<'target, T> {
     fn new(target: &'target mut T) -> Self {
         Self {
             target,
@@ -209,8 +209,8 @@ impl<'target, 'tex, T> DrawTextureBuilder<'target, 'tex, T> {
         }
     }
 
-    pub fn texture(&mut self, texture: &'tex Texture2D) -> &mut Self {
-        self.texture = Some(texture);
+    pub fn texture(&mut self, texture: &Texture2D) -> &mut Self {
+        self.texture = Some(texture.clone());
         self
     }
 
@@ -246,12 +246,13 @@ impl<'target, 'tex, T> DrawTextureBuilder<'target, 'tex, T> {
         T: DrawTargetFull,
         Self: 'target,
     {
-        expect!(DrawTextureBuilder => self [texture, destination]);
+        expect!(DrawTextureBuilder => self [destination]);
+        let texture = self.texture.as_ref().unwrap().clone();
 
         let source = self.source.unwrap_or(texture.bounds());
 
         self.target.draw_texture_pro(
-            texture,
+            &texture,
             source,
             match destination {
                 Destination::Rect(r) => r,
@@ -467,7 +468,7 @@ pub trait DrawTargetFull: DrawTarget + Sized {
         rotation: f32,
         tint: Color,
     );
-    fn draw_texture_builder<'dt, 'tex>(&'dt mut self) -> DrawTextureBuilder<'dt, 'tex, Self> {
+    fn draw_texture_builder<'dt>(&'dt mut self) -> DrawTextureBuilder<'dt, Self> {
         DrawTextureBuilder::new(self)
     }
 }

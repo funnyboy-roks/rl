@@ -1,4 +1,4 @@
-use std::{ffi::CString, path::Path, sync::atomic::Ordering};
+use std::{ffi::CString, path::Path, rc::Rc, sync::atomic::Ordering};
 
 use raylib_sys::{self as sys};
 
@@ -9,13 +9,41 @@ use crate::{
     image::Image,
 };
 
+// TODO/NOTE: This reference-counted garbage collection pattern here is sad, but I need to find the
+// correct way to tell the borrow checker that a Texture2D passed to a DrawTarget needs to outlive
+// said target.
+//
+// take the following code:
+//
+// ```rust
+// while let Some(mut frame) = window.next_frame() {
+//     let texture = Texture2D::load("foo.png");
+//
+//     texture.draw_texture(texture, ...);
+// }
+// ```
+//
+// Currently, this will draw the texture as black because `UnloadTexture` (called by Texture2D drop)
+// is called _before_ `EndDrawing` (called by Frame drop).  Basically as use-after-free.
+//
+// The correct drop order should be Frame -> Texture2D, but I am unable to get the lifetimes working
+// correctly for that to happen.
+//
+// If the drops can't be inferred correctly, then at the very least we should get an error about the
+// texture lifetime being less than the frame.
+//
+// Because I haven't been able to get the lifetimes done correctly, we have this temporary (lol)
+// solution.
+
 #[derive(Debug)]
 #[repr(transparent)]
-pub struct Texture2D(sys::Texture2D);
+pub struct Texture2D(Rc<sys::Texture2D>);
 
 impl Drop for Texture2D {
     fn drop(&mut self) {
-        unsafe { sys::UnloadTexture(self.0) };
+        if let Some(tex) = Rc::get_mut(&mut self.0) {
+            unsafe { sys::UnloadTexture(*tex) };
+        }
     }
 }
 
@@ -36,18 +64,16 @@ impl AsRef<Texture2D> for &Texture2D {
 }
 
 impl Texture2D {
-    pub(crate) fn from_ref_sys(texture: &sys::Texture2D) -> &Self {
-        assert!(Self::is_valid(*texture));
-        // SAFETY: Texture2D is a transparent wrapper around the raylib one
-        unsafe { std::mem::transmute(texture) }
-    }
-
     pub(crate) fn from_sys(texture: sys::Texture2D) -> Option<Self> {
-        Self::is_valid(texture).then_some(Self(texture))
+        Self::is_valid(texture).then_some(Self(Rc::new(texture)))
     }
 
-    pub(crate) fn inner(&self) -> sys::Texture2D {
-        self.0
+    pub(crate) fn clone(&self) -> Texture2D {
+        Self(self.0.clone())
+    }
+
+    pub(crate) fn inner(&self) -> Rc<sys::Texture2D> {
+        self.0.clone()
     }
 
     pub(crate) fn is_valid(texture: sys::Texture2D) -> bool {
@@ -67,31 +93,43 @@ impl Texture2D {
 }
 
 #[derive(Debug)]
-pub struct RenderTexture2D(sys::RenderTexture2D);
+pub struct RenderTexture2D {
+    id: u32,
+    texture: Texture2D,
+    depth: Texture2D,
+}
 
 impl Drop for RenderTexture2D {
     fn drop(&mut self) {
-        unsafe { sys::UnloadRenderTexture(self.0) };
+        unsafe { sys::UnloadRenderTexture(self.inner()) };
     }
 }
 
 impl Bounded for RenderTexture2D {
     fn width(&self) -> u32 {
-        self.0.texture.width as _
+        self.texture.width()
     }
 
     fn height(&self) -> u32 {
-        self.0.texture.height as _
+        self.texture.height()
     }
 }
 
 impl RenderTexture2D {
     pub(crate) fn from_sys(texture: sys::RenderTexture2D) -> Option<Self> {
-        Self::is_valid(texture).then_some(Self(texture))
+        Self::is_valid(texture).then_some(Self {
+            id: texture.id,
+            texture: Texture2D::from_sys(texture.texture).unwrap(),
+            depth: Texture2D::from_sys(texture.depth).unwrap(),
+        })
     }
 
     pub(crate) fn inner(&self) -> sys::RenderTexture2D {
-        self.0
+        sys::RenderTexture2D {
+            id: self.id,
+            texture: *self.texture.inner(),
+            depth: *self.depth.inner(),
+        }
     }
 
     pub(crate) fn is_valid(texture: sys::RenderTexture2D) -> bool {
@@ -113,18 +151,18 @@ impl RenderTexture2D {
     }
 
     /// Color buffer attachment texture
-    pub fn texture(&self) -> &Texture2D {
-        Texture2D::from_ref_sys(&self.0.texture)
+    pub fn texture(&self) -> Texture2D {
+        self.texture.clone()
     }
 
     /// Depth buffer attachment texture
-    pub fn depth(&self) -> &Texture2D {
-        Texture2D::from_ref_sys(&self.0.texture)
+    pub fn depth(&self) -> Texture2D {
+        self.depth.clone()
     }
 
     /// OpenGL framebuffer object id
     pub fn id(&self) -> u32 {
-        self.0.id
+        self.id
     }
 
     pub fn draw_with<'t, F>(&'t mut self, f: F)
@@ -144,6 +182,7 @@ impl RenderTexture2D {
 
 pub struct DrawRenderTexture2D<'texture> {
     texture: &'texture mut RenderTexture2D,
+    resources: Vec<Texture2D>,
 }
 
 impl DrawRenderTexture2D<'_> {
@@ -178,7 +217,10 @@ impl<'t> DrawRenderTexture2D<'t> {
             panic!("Only one texture may be drawn to at a time.");
         }
         unsafe { sys::BeginTextureMode(texture.inner()) };
-        Self { texture }
+        Self {
+            texture,
+            resources: Vec::new(),
+        }
     }
 }
 
@@ -634,7 +676,8 @@ impl DrawTargetFull for DrawRenderTexture2D<'_> {
         tint: Color,
     ) {
         self.assert_can_draw();
-        unsafe { sys::DrawTextureEx(texture.inner(), position.into(), rotation, scale, tint) };
+        self.resources.push(texture.clone());
+        unsafe { sys::DrawTextureEx(*texture.inner(), position.into(), rotation, scale, tint) };
     }
 
     fn draw_texture_pro(
@@ -647,15 +690,7 @@ impl DrawTargetFull for DrawRenderTexture2D<'_> {
         tint: Color,
     ) {
         self.assert_can_draw();
-        unsafe {
-            sys::DrawTexturePro(
-                texture.as_ref().inner(),
-                src,
-                dst,
-                origin.into(),
-                rotation,
-                tint,
-            )
-        };
+        self.resources.push(texture.clone());
+        unsafe { sys::DrawTexturePro(*texture.inner(), src, dst, origin.into(), rotation, tint) };
     }
 }

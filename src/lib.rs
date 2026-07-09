@@ -105,6 +105,7 @@ impl Mouse<'_> {
 
 pub struct Frame<'window> {
     window: &'window mut Window,
+    resources: Vec<Texture2D>,
 }
 
 impl Frame<'_> {
@@ -648,7 +649,8 @@ impl DrawTargetFull for Frame<'_> {
         tint: Color,
     ) {
         self.assert_can_draw();
-        unsafe { sys::DrawTextureEx(texture.inner(), position.into(), rotation, scale, tint) };
+        self.resources.push(texture.clone());
+        unsafe { sys::DrawTextureEx(*texture.inner(), position.into(), rotation, scale, tint) };
     }
 
     fn draw_texture_pro(
@@ -661,15 +663,7 @@ impl DrawTargetFull for Frame<'_> {
         tint: Color,
     ) {
         self.assert_can_draw();
-        unsafe {
-            sys::DrawTexturePro(
-                texture.as_ref().inner(),
-                src,
-                dst,
-                origin.into(),
-                rotation,
-                tint,
-            )
-        };
+        self.resources.push(texture.clone());
+        unsafe { sys::DrawTexturePro(*texture.inner(), src, dst, origin.into(), rotation, tint) };
     }
 }
