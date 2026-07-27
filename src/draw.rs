@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use bauer::Builder;
 
 use crate::{Bounded, Color, Rectangle, Texture2D, Vector2};
 
@@ -122,63 +122,40 @@ pub enum GradientDirection {
     Vertical,
 }
 
-#[derive(Clone, Copy)]
-pub struct DrawRectangleBuilder<T> {
+#[derive(Clone, Copy, Builder)]
+#[builder(kind = "type-state", builder_fn(visibility = pub(self)))]
+pub struct DrawRectangle<T> {
+    #[builder(associated)]
     target: T,
-    rectangle: Option<Rectangle>,
+    rectangle: Rectangle,
+    #[builder(adapter = |origin: impl Into<Vector2>, rotation: f32| (origin.into(), rotation))]
     rotation: (Vector2, f32),
-    color: Option<Color>,
+    #[builder(into)]
+    color: Color,
 }
 
-impl<T> DrawRectangleBuilder<T> {
-    fn new(target: T) -> Self {
-        Self {
-            target,
-            rectangle: None,
-            rotation: (Vector2::zero(), 0.),
-            color: None,
-        }
-    }
+type EmptyDrawRectangleBuilder<T> = DrawRectangleBuilder<
+    T,
+    DrawRectangle_Rectangle_Set<false>,
+    DrawRectangle_Rotation_Set<false>,
+    DrawRectangle_Color_Set<false>,
+>;
+type FilledDrawRectangleBuilder<T> = DrawRectangleBuilder<
+    T,
+    DrawRectangle_Rectangle_Set<true>,
+    DrawRectangle_Rotation_Set<true>,
+    DrawRectangle_Color_Set<true>,
+>;
 
-    pub fn rectangle(&mut self, rectangle: Rectangle) -> &mut Self {
-        self.rectangle = Some(rectangle);
-        self
-    }
-
-    pub fn rotation(&mut self, origin: impl Into<Vector2>, rotation: f32) -> &mut Self {
-        self.rotation = (origin.into(), rotation);
-        self
-    }
-
-    pub fn color(&mut self, color: impl Into<Color>) -> &mut Self {
-        self.color = Some(color.into());
-        self
-    }
-
-    /// # Panics
-    ///
-    /// If `rectangle` or `color` have not been set
-    pub fn draw(&mut self)
-    where
-        T: DrawTargetFull,
-    {
-        let rectangle = self
-            .rectangle
-            .expect("rectangle must be set on DrawRectangleBuilder");
-        let color = self
-            .color
-            .expect("color must be set on DrawRectangleBuilder");
-
-        self.target
-            .draw_rectangle_pro(rectangle, self.rotation.0, self.rotation.1, color);
-    }
-}
-
-macro_rules! expect {
-    ($ty: ty => $self: ident [$($e:ident),* ]) => {
-        $(
-            let $e = $self.$e.expect(concat!(stringify!($e), " must be set on ", stringify!($ty)));
-        )*
+impl<T: DrawTargetFull> FilledDrawRectangleBuilder<T> {
+    pub fn draw(self) {
+        let mut draw_rect = self.build();
+        draw_rect.target.draw_rectangle_pro(
+            draw_rect.rectangle,
+            draw_rect.rotation.0,
+            draw_rect.rotation.1,
+            draw_rect.color,
+        );
     }
 }
 
@@ -188,84 +165,65 @@ enum Destination {
     Scale(Vector2, f32),
 }
 
-pub struct DrawTextureBuilder<'target, T> {
+#[derive(Builder)]
+#[builder(builder_fn(visibility = pub(self)))]
+pub struct DrawTexture<'target, T> {
+    #[builder(associated)]
     target: &'target mut T,
-    texture: Option<Texture2D>,
+    #[builder(adapter = |texture: &Texture2D| texture.clone())]
+    texture: Texture2D,
+    #[builder(into)]
     source: Option<Rectangle>,
-    destination: Option<Destination>,
+    #[builder(adapter = |rect: impl Into<Rectangle>| Destination::Rect(rect.into()))]
+    destination: Destination,
+    #[builder(
+        default = "(Vector2::zero(), 0.)",
+        adapter = |origin: impl Into<Vector2>, rotation: f32| (origin.into(), rotation)
+    )]
     rotation: (Vector2, f32),
+    #[builder(into, default = "Color::WHITE")]
     tint: Color,
 }
 
+impl<T> DrawTextureBuilder<'_, T> {
+    pub fn position(self, position: impl Into<Vector2>, scale: f32) -> Self {
+        let mut this = self;
+        #[expect(
+            deprecated,
+            unused_unsafe, // just to be obvious
+            reason = "This is the only way to do this.  Maybe that should change?"
+        )]
+        let inner = unsafe { &mut this.__unsafe_builder_content };
+        inner.3 = Some(Destination::Scale(position.into(), scale));
+        this
+    }
+}
+
 impl<'target, T> DrawTextureBuilder<'target, T> {
-    fn new(target: &'target mut T) -> Self {
-        Self {
-            target,
-            texture: None,
-            source: None,
-            destination: None,
-            rotation: Default::default(),
-            tint: Color::WHITE,
-        }
-    }
-
-    pub fn texture(&mut self, texture: &Texture2D) -> &mut Self {
-        self.texture = Some(texture.clone());
-        self
-    }
-
-    pub fn source(&mut self, rect: impl Into<Rectangle>) -> &mut Self {
-        self.source = Some(rect.into());
-        self
-    }
-
-    /// NOTE: Overwrites the value specified by [`Self::position`]
-    pub fn destination(&mut self, rect: impl Into<Rectangle>) -> &mut Self {
-        self.destination = Some(Destination::Rect(rect.into()));
-        self
-    }
-
-    /// NOTE: Overwrites the value specified by [`Self::destination`]
-    pub fn position(&mut self, position: impl Into<Vector2>, scale: f32) -> &mut Self {
-        self.destination = Some(Destination::Scale(position.into(), scale));
-        self
-    }
-
-    pub fn rotation(&mut self, origin: impl Into<Vector2>, rotation: f32) -> &mut Self {
-        self.rotation = (origin.into(), rotation);
-        self
-    }
-
-    pub fn tint(&mut self, tint: impl Into<Color>) -> &mut Self {
-        self.tint = tint.into();
-        self
-    }
-
-    pub fn draw(&mut self)
+    pub fn draw(self)
     where
         T: DrawTargetFull,
         Self: 'target,
     {
-        expect!(DrawTextureBuilder => self [destination]);
-        let texture = self.texture.as_ref().unwrap().clone();
+        let this = self.build().unwrap();
 
-        let source = self.source.unwrap_or(texture.bounds());
+        let source = this.source.unwrap_or(this.texture.bounds());
 
-        self.target.draw_texture_pro(
-            &texture,
+        this.target.draw_texture_pro(
+            &this.texture,
             source,
-            match destination {
+            match this.destination {
                 Destination::Rect(r) => r,
                 Destination::Scale(p, s) => Rectangle {
                     x: p.x,
                     y: p.y,
-                    width: texture.width() as f32 * s,
-                    height: texture.height() as f32 * s,
+                    width: this.texture.width() as f32 * s,
+                    height: this.texture.height() as f32 * s,
                 },
             },
-            self.rotation.0,
-            self.rotation.1,
-            self.tint,
+            this.rotation.0,
+            this.rotation.1,
+            this.tint,
         );
     }
 }
@@ -328,6 +286,7 @@ pub trait DrawTargetFull: DrawTarget + Sized {
         color: Color,
     );
 
+    #[expect(clippy::too_many_arguments, reason = "matching with raylib api")]
     fn draw_ring(
         &mut self,
         center: impl Into<Vector2>,
@@ -339,6 +298,7 @@ pub trait DrawTargetFull: DrawTarget + Sized {
         color: Color,
     );
 
+    #[expect(clippy::too_many_arguments, reason = "matching with raylib api")]
     fn draw_ring_lines(
         &mut self,
         center: impl Into<Vector2>,
@@ -365,8 +325,8 @@ pub trait DrawTargetFull: DrawTarget + Sized {
         rotation: f32,
         color: Color,
     );
-    fn draw_rectangle_builder(&mut self) -> DrawRectangleBuilder<&mut Self> {
-        DrawRectangleBuilder::new(self)
+    fn draw_rectangle_builder(&mut self) -> EmptyDrawRectangleBuilder<&mut Self> {
+        DrawRectangle::builder(self)
     }
     fn draw_rectangle_rounded(
         &mut self,
@@ -469,7 +429,7 @@ pub trait DrawTargetFull: DrawTarget + Sized {
         tint: Color,
     );
     fn draw_texture_builder<'dt>(&'dt mut self) -> DrawTextureBuilder<'dt, Self> {
-        DrawTextureBuilder::new(self)
+        DrawTexture::builder(self)
     }
 }
 

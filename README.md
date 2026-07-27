@@ -11,7 +11,10 @@ Rust and easier to use in general.
 use rl::{Window, Vector2, Color};
 
 fn main() {
-    let mut window = Window::init(800, 600, "My Game");
+    let mut window = Window::builder()
+        .size(800, 600)
+        .title("My Game")
+        .init();
 
     while let Some(mut frame) = window.next_frame() {
         frame.draw_circle(Vector2::new(100., 100.), 50., Color::RED);
