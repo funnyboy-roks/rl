@@ -67,6 +67,11 @@ jobs:
     runs-on: ubuntu-latest
     name: nightly / doc
     steps:
+      - name: Setup Environment
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install gcc-multilib
+          sudo apt-get install -y --no-install-recommends libglfw3 libglfw3-dev libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxext-dev libxfixes-dev libwayland-dev libxkbcommon-dev
       - uses: actions/checkout@v7
         with:
           submodules: true
@@ -84,6 +89,11 @@ jobs:
     runs-on: ubuntu-latest
     name: ubuntu / stable / features
     steps:
+      - name: Setup Environment
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install gcc-multilib
+          sudo apt-get install -y --no-install-recommends libglfw3 libglfw3-dev libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxext-dev libxfixes-dev libwayland-dev libxkbcommon-dev
       - uses: actions/checkout@v7
         with:
           submodules: true
@@ -109,6 +119,11 @@ jobs:
         msrv: ["1.85"]
     name: ubuntu / ${{ matrix.msrv }}
     steps:
+      - name: Setup Environment
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install gcc-multilib
+          sudo apt-get install -y --no-install-recommends libglfw3 libglfw3-dev libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxext-dev libxfixes-dev libwayland-dev libxkbcommon-dev
       - uses: actions/checkout@v7
         with:
           submodules: true
