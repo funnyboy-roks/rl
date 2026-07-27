@@ -7,6 +7,55 @@ use raylib_sys as sys;
 
 use crate::{Bounded, Frame, Image, Vector2, globals::WINDOW_INITIALISED};
 
+#[derive(bauer::Builder)]
+#[builder(kind = "type-state")]
+pub struct WindowConfig<'a> {
+    title: &'a str,
+    #[builder(tuple(width, height))]
+    size: (u32, u32),
+    flags: Option<ConfigFlags>,
+    target_fps: Option<u32>,
+}
+
+impl WindowConfig<'_> {
+    pub fn init(self) -> Window {
+        let mut win = if let Some(flags) = self.flags {
+            Window::init_with_flags(self.size.0, self.size.1, self.title, flags)
+        } else {
+            Window::init(self.size.0, self.size.1, self.title)
+        };
+
+        if let Some(target_fps) = self.target_fps {
+            win.set_target_fps(target_fps);
+        }
+
+        win
+    }
+}
+
+// https://github.com/funnyboy-roks/bauer/issues/98
+type EmptyWindowConfigBuilder<'a> = WindowConfigBuilder<
+    'a,
+    WindowConfig_Title_Set<false>,
+    WindowConfig_Size_Set<false>,
+    WindowConfig_Flags_Set<false>,
+    WindowConfig_TargetFps_Set<false>,
+>;
+type FilledWindowConfigBuilder<'a, const FLAGS_SET: bool, const FPS_SET: bool> =
+    WindowConfigBuilder<
+        'a,
+        WindowConfig_Title_Set<true>,
+        WindowConfig_Size_Set<true>,
+        WindowConfig_Flags_Set<FLAGS_SET>,
+        WindowConfig_TargetFps_Set<FPS_SET>,
+    >;
+
+impl<const FLAGS: bool, const FPS: bool> FilledWindowConfigBuilder<'_, FLAGS, FPS> {
+    pub fn init(self) -> Window {
+        self.build().init()
+    }
+}
+
 #[derive(Debug)]
 pub struct Window {
     pub(crate) prev_mouse: Option<Vector2>,
@@ -70,6 +119,10 @@ macro_rules! gen_getter {
 }
 
 impl Window {
+    pub fn builder<'a>() -> EmptyWindowConfigBuilder<'a> {
+        WindowConfig::builder()
+    }
+
     pub fn init(width: u32, height: u32, title: impl AsRef<str>) -> Window {
         if WINDOW_INITIALISED
             .compare_exchange(false, true, Ordering::Acquire, Ordering::Acquire)

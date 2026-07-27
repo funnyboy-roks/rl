@@ -12,7 +12,7 @@ fn reset(ball_pos: &mut Vector2, ball_vel: &mut Vector2) {
 }
 
 fn main() {
-    let mut window = Window::init(800, 600, "hello world");
+    let mut window = Window::builder().title("hello world").size(800, 600).init();
 
     let ball_radius = 10.;
     let mut ball_pos = Vector2::zero();

@@ -23,9 +23,12 @@ impl Dir {
 }
 
 fn main() {
-    let mut window = Window::init_with_flags(800, 600, "Snake", ConfigFlags::WINDOW_RESIZABLE);
-
-    window.set_target_fps(60);
+    let mut window = Window::builder()
+        .size(800, 600)
+        .title("Snake")
+        .flags(ConfigFlags::WINDOW_RESIZABLE)
+        .target_fps(60)
+        .init();
 
     let mut snek = VecDeque::new();
 
