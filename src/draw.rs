@@ -1,6 +1,6 @@
 use bauer::Builder;
 
-use crate::{Bounded, Color, Rectangle, Texture2D, Vector2};
+use crate::{Bounded, Color, Rectangle, Texture2D, math::Vector2};
 
 // basic item that image, frame, and target can use
 pub trait DrawTarget {
@@ -177,7 +177,7 @@ pub struct DrawTexture<'target, T> {
     #[builder(adapter = |rect: impl Into<Rectangle>| Destination::Rect(rect.into()))]
     destination: Destination,
     #[builder(
-        default = "(Vector2::zero(), 0.)",
+        default = "(Vector2::ZERO, 0.)",
         adapter = |origin: impl Into<Vector2>, rotation: f32| (origin.into(), rotation)
     )]
     rotation: (Vector2, f32),

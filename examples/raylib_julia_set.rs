@@ -1,25 +1,15 @@
+//! https://github.com/raysan5/raylib/blob/master/examples/shaders/shaders_julia_set.c
+
 use rl::prelude::*;
 
 // A few good julia sets
 const POINTS_OF_INTEREST: [Vector2; 6] = [
-    Vector2 {
-        x: -0.348827,
-        y: 0.607167,
-    },
-    Vector2 {
-        x: -0.786268,
-        y: 0.169728,
-    },
-    Vector2 { x: -0.8, y: 0.156 },
-    Vector2 { x: 0.285, y: 0.0 },
-    Vector2 {
-        x: -0.835,
-        y: -0.2321,
-    },
-    Vector2 {
-        x: -0.70176,
-        y: -0.3842,
-    },
+    Vector2::new(-0.348827, 0.607167),
+    Vector2::new(-0.786268, 0.169728),
+    Vector2::new(-0.8, 0.156),
+    Vector2::new(0.285, 0.0),
+    Vector2::new(-0.835, -0.2321),
+    Vector2::new(-0.70176, -0.3842),
 ];
 
 const ZOOM_SPEED: f32 = 1.01;
@@ -127,7 +117,7 @@ fn main() {
     let mut c = POINTS_OF_INTEREST[0];
 
     // Offset and zoom to draw the julia set at. (centered on screen and default size)
-    let mut offset = Vector2::zero();
+    let mut offset = Vector2::ZERO;
     let mut zoom = STARTING_ZOOM;
 
     // Get variable (uniform) locations on the shader to connect with the program
@@ -187,7 +177,7 @@ fn main() {
         // If "R" is pressed, reset zoom and offset
         if frame.is_key_pressed(KeyboardKey::KEY_R) {
             zoom = STARTING_ZOOM;
-            offset = Vector2::zero();
+            offset = Vector2::ZERO;
 
             zoom_loc.set(zoom);
             offset_loc.set(offset);
@@ -252,7 +242,7 @@ fn main() {
         shader.with(|| {
             // WARNING: If FLAG_WINDOW_HIGHDPI is enabled, HighDPI monitor scaling should be considered
             // when rendering the RenderTexture2D to fit in the HighDPI scaled Window
-            frame.draw_texture(&target.texture(), Vector2::zero(), 0., 1., Color::WHITE);
+            frame.draw_texture(&target.texture(), Vector2::ZERO, 0., 1., Color::WHITE);
         });
 
         if show_controls {

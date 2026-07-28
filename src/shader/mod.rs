@@ -8,6 +8,8 @@ use std::{
 
 use raylib_sys as sys;
 
+use crate::math::Vector2;
+
 mod sealed {
     use raylib_sys as sys;
     pub trait ShaderUniformPriv {
@@ -41,7 +43,7 @@ impl_shader_uniform!(u32 =>
         unsafe { sys::SetShaderValue(shader, index, (&raw const self).cast(), sys::ShaderUniformDataType::SHADER_UNIFORM_UINT as _) }
     }
 );
-impl_shader_uniform!(sys::Vector2 =>
+impl_shader_uniform!(Vector2 =>
     fn set(self, shader: sys::Shader, index: i32) {
         let items = [self.x, self.y];
         unsafe { sys::SetShaderValue(shader, index, (&raw const items).cast(), sys::ShaderUniformDataType::SHADER_UNIFORM_VEC2 as _) }

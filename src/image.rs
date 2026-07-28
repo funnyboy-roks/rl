@@ -555,9 +555,9 @@ impl Image {
         unsafe {
             sys::ImageDrawTriangleEx(
                 &raw mut self.0,
-                p1.0.into(),
-                p2.0.into(),
-                p3.0.into(),
+                p1.0.into().into(),
+                p2.0.into().into(),
+                p3.0.into().into(),
                 p1.1,
                 p2.1,
                 p3.1,
@@ -582,7 +582,7 @@ impl DrawTarget for Image {
     }
 
     fn draw_pixel(&mut self, position: impl Into<Vector2>, color: Color) {
-        unsafe { sys::ImageDrawPixelV(&raw mut self.0, position.into(), color) };
+        unsafe { sys::ImageDrawPixelV(&raw mut self.0, position.into().into(), color) };
     }
 
     fn draw_line(
@@ -592,7 +592,15 @@ impl DrawTarget for Image {
         thick: f32,
         color: Color,
     ) {
-        unsafe { sys::ImageDrawLineEx(&raw mut self.0, from.into(), to.into(), thick as _, color) };
+        unsafe {
+            sys::ImageDrawLineEx(
+                &raw mut self.0,
+                from.into().into(),
+                to.into().into(),
+                thick as _,
+                color,
+            )
+        };
     }
 
     fn draw_circle(&mut self, center: impl Into<Vector2>, radius: f32, color: Color) {
@@ -609,7 +617,9 @@ impl DrawTarget for Image {
     }
 
     fn draw_circle_lines(&mut self, center: impl Into<Vector2>, radius: f32, color: Color) {
-        unsafe { sys::ImageDrawCircleLinesV(&raw mut self.0, center.into(), radius as _, color) };
+        unsafe {
+            sys::ImageDrawCircleLinesV(&raw mut self.0, center.into().into(), radius as _, color)
+        };
     }
 
     fn draw_rectangle(&mut self, rect: Rectangle, color: Color) {
@@ -638,19 +648,35 @@ impl DrawTarget for Image {
         color: Color,
     ) {
         unsafe {
-            sys::ImageDrawTriangleLines(&raw mut self.0, p1.into(), p2.into(), p3.into(), color)
+            sys::ImageDrawTriangleLines(
+                &raw mut self.0,
+                p1.into().into(),
+                p2.into().into(),
+                p3.into().into(),
+                color,
+            )
         };
     }
 
     fn draw_triangle_fan(&mut self, points: &[Vector2], color: Color) {
         unsafe {
-            sys::ImageDrawTriangleFan(&raw mut self.0, points.as_ptr(), points.len() as _, color)
+            sys::ImageDrawTriangleFan(
+                &raw mut self.0,
+                points.as_ptr().cast(),
+                points.len() as _,
+                color,
+            )
         };
     }
 
     fn draw_triangle_strip(&mut self, points: &[Vector2], color: Color) {
         unsafe {
-            sys::ImageDrawTriangleStrip(&raw mut self.0, points.as_ptr(), points.len() as _, color)
+            sys::ImageDrawTriangleStrip(
+                &raw mut self.0,
+                points.as_ptr().cast(),
+                points.len() as _,
+                color,
+            )
         };
     }
 

@@ -217,7 +217,7 @@ impl Monitor {
     }
 
     pub fn position(&self) -> Vector2 {
-        unsafe { sys::GetMonitorPosition(self.0.try_into().unwrap()) }
+        unsafe { sys::GetMonitorPosition(self.0.try_into().unwrap()) }.into()
     }
 
     pub fn name(&self) -> Option<String> {
@@ -257,7 +257,7 @@ impl Window {
     }
 
     pub fn get_monitor_position(&self, monitor: u32) -> Vector2 {
-        unsafe { sys::GetMonitorPosition(monitor.try_into().unwrap()) }
+        unsafe { sys::GetMonitorPosition(monitor.try_into().unwrap()) }.into()
     }
 
     pub fn get_current_monitor(&self) -> Monitor {
