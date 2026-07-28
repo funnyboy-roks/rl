@@ -68,7 +68,7 @@ impl Texture2D {
         Self::is_valid(texture).then_some(Self(Rc::new(texture)))
     }
 
-    pub(crate) fn clone(&self) -> Texture2D {
+    pub(crate) fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 

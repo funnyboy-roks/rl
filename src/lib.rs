@@ -16,8 +16,10 @@ pub mod draw;
 mod globals;
 pub mod image;
 pub mod rand;
+pub mod shader;
 pub mod text;
 pub mod texture;
+mod util;
 pub mod window;
 
 pub mod prelude {
@@ -26,6 +28,8 @@ pub mod prelude {
         draw::{DrawTarget, DrawTargetFull},
         image::{FileType, Image, ImageResizeMode},
         rand::Random,
+        shader,
+        shader::Shader,
         texture::{RenderTexture2D, Texture2D},
         window::{ConfigFlags, Window},
     };
