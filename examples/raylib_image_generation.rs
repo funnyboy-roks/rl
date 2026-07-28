@@ -37,7 +37,7 @@ fn main() {
 
         frame.draw_texture(
             &textures[current_texture],
-            Vector2::zero(),
+            Vector2::ZERO,
             0.,
             1.,
             Color::WHITE,

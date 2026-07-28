@@ -221,12 +221,22 @@ macro_rules! __shader_inner {
             }
         }
     };
+    ($lit: literal) => {
+        const {
+            unsafe {
+                ::core::ffi::CStr::from_bytes_with_nul_unchecked(
+                    concat!($lit, "\0").as_bytes()
+                )
+            }
+        }
+    };
 }
 
 /// A handy way to create a shader.  Because some shader items require a newline, the top-level
 /// items must be wrapped with `{}` and will be joined using newlines:
 ///
 /// ```rust
+/// # use rl::shader;
 /// shader! {
 ///     vertex {
 ///         { #version 330}
@@ -245,6 +255,7 @@ macro_rules! __shader_inner {
 ///         }
 ///     }
 /// }
+/// # ;
 /// ```
 ///
 /// # Note

@@ -237,12 +237,12 @@ impl Bounded for DrawRenderTexture2D<'_> {
 impl DrawTarget for DrawRenderTexture2D<'_> {
     fn clear_background(&mut self, color: Color) {
         self.assert_can_draw();
-        unsafe { sys::ClearBackground(color) }
+        unsafe { sys::ClearBackground(color.into()) }
     }
 
     fn draw_pixel(&mut self, positon: impl Into<Vector2>, color: Color) {
         self.assert_can_draw();
-        unsafe { sys::DrawPixelV(positon.into().into(), color) }
+        unsafe { sys::DrawPixelV(positon.into().into(), color.into()) }
     }
 
     fn draw_line(
@@ -253,28 +253,28 @@ impl DrawTarget for DrawRenderTexture2D<'_> {
         color: Color,
     ) {
         self.assert_can_draw();
-        unsafe { sys::DrawLineEx(from.into().into(), to.into().into(), thick, color) };
+        unsafe { sys::DrawLineEx(from.into().into(), to.into().into(), thick, color.into()) };
     }
 
     fn draw_circle(&mut self, center: impl Into<Vector2>, radius: f32, color: Color) {
         self.assert_can_draw();
         let center = center.into();
-        unsafe { sys::DrawCircle(center.x as _, center.y as _, radius, color) };
+        unsafe { sys::DrawCircle(center.x as _, center.y as _, radius, color.into()) };
     }
 
     fn draw_circle_lines(&mut self, center: impl Into<Vector2>, radius: f32, color: Color) {
         self.assert_can_draw();
-        unsafe { sys::DrawCircleLinesV(center.into().into(), radius, color) }
+        unsafe { sys::DrawCircleLinesV(center.into().into(), radius, color.into()) }
     }
 
     fn draw_rectangle(&mut self, rect: Rectangle, color: Color) {
         self.assert_can_draw();
-        unsafe { sys::DrawRectangleRec(rect, color) };
+        unsafe { sys::DrawRectangleRec(rect, color.into()) };
     }
 
     fn draw_rectangle_lines(&mut self, rect: Rectangle, line_thick: f32, color: Color) {
         self.assert_can_draw();
-        unsafe { sys::DrawRectangleLinesEx(rect, line_thick, color) };
+        unsafe { sys::DrawRectangleLinesEx(rect, line_thick, color.into()) };
     }
 
     fn draw_triangle(
@@ -285,7 +285,14 @@ impl DrawTarget for DrawRenderTexture2D<'_> {
         color: Color,
     ) {
         self.assert_can_draw();
-        unsafe { sys::DrawTriangle(p1.into().into(), p2.into().into(), p3.into().into(), color) };
+        unsafe {
+            sys::DrawTriangle(
+                p1.into().into(),
+                p2.into().into(),
+                p3.into().into(),
+                color.into(),
+            )
+        };
     }
 
     fn draw_triangle_lines(
@@ -297,18 +304,23 @@ impl DrawTarget for DrawRenderTexture2D<'_> {
     ) {
         self.assert_can_draw();
         unsafe {
-            sys::DrawTriangleLines(p1.into().into(), p2.into().into(), p3.into().into(), color)
+            sys::DrawTriangleLines(
+                p1.into().into(),
+                p2.into().into(),
+                p3.into().into(),
+                color.into(),
+            )
         };
     }
 
     fn draw_triangle_fan(&mut self, points: &[Vector2], color: Color) {
         self.assert_can_draw();
-        unsafe { sys::DrawTriangleFan(points.as_ptr().cast(), points.len() as _, color) };
+        unsafe { sys::DrawTriangleFan(points.as_ptr().cast(), points.len() as _, color.into()) };
     }
 
     fn draw_triangle_strip(&mut self, points: &[Vector2], color: Color) {
         self.assert_can_draw();
-        unsafe { sys::DrawTriangleStrip(points.as_ptr().cast(), points.len() as _, color) };
+        unsafe { sys::DrawTriangleStrip(points.as_ptr().cast(), points.len() as _, color.into()) };
     }
 
     fn draw_text(
@@ -321,14 +333,22 @@ impl DrawTarget for DrawRenderTexture2D<'_> {
         self.assert_can_draw();
         let text = CString::new(text.as_ref()).expect("str has no null");
         let pos = pos.into();
-        unsafe { sys::DrawText(text.as_ptr(), pos.x as _, pos.y as _, font_size as _, color) };
+        unsafe {
+            sys::DrawText(
+                text.as_ptr(),
+                pos.x as _,
+                pos.y as _,
+                font_size as _,
+                color.into(),
+            )
+        };
     }
 }
 
 impl DrawTargetFull for DrawRenderTexture2D<'_> {
     fn draw_line_strip(&mut self, points: &[Vector2], color: Color) {
         self.assert_can_draw();
-        unsafe { sys::DrawLineStrip(points.as_ptr().cast(), points.len() as _, color) };
+        unsafe { sys::DrawLineStrip(points.as_ptr().cast(), points.len() as _, color.into()) };
     }
 
     fn draw_line_bezier(
@@ -339,7 +359,7 @@ impl DrawTargetFull for DrawRenderTexture2D<'_> {
         color: Color,
     ) {
         self.assert_can_draw();
-        unsafe { sys::DrawLineBezier(start.into().into(), end.into().into(), thick, color) };
+        unsafe { sys::DrawLineBezier(start.into().into(), end.into().into(), thick, color.into()) };
     }
 
     fn draw_line_dashed(
@@ -357,7 +377,7 @@ impl DrawTargetFull for DrawRenderTexture2D<'_> {
                 end.into().into(),
                 dash_size as _,
                 space_size as _,
-                color,
+                color.into(),
             )
         };
     }
@@ -370,7 +390,9 @@ impl DrawTargetFull for DrawRenderTexture2D<'_> {
         outer: Color,
     ) {
         self.assert_can_draw();
-        unsafe { sys::DrawCircleGradient(center.into().into(), radius, inner, outer) };
+        unsafe {
+            sys::DrawCircleGradient(center.into().into(), radius, inner.into(), outer.into())
+        };
     }
 
     fn draw_circle_sector(
@@ -390,7 +412,7 @@ impl DrawTargetFull for DrawRenderTexture2D<'_> {
                 start_angle,
                 end_angle,
                 segments as _,
-                color,
+                color.into(),
             )
         };
     }
@@ -412,7 +434,7 @@ impl DrawTargetFull for DrawRenderTexture2D<'_> {
                 start_angle,
                 end_angle,
                 segments as _,
-                color,
+                color.into(),
             )
         };
     }
@@ -425,7 +447,7 @@ impl DrawTargetFull for DrawRenderTexture2D<'_> {
     ) {
         self.assert_can_draw();
         let radius = radius.into();
-        unsafe { sys::DrawEllipseV(center.into().into(), radius.x, radius.y, color) };
+        unsafe { sys::DrawEllipseV(center.into().into(), radius.x, radius.y, color.into()) };
     }
 
     fn draw_ellipse_lines(
@@ -436,7 +458,7 @@ impl DrawTargetFull for DrawRenderTexture2D<'_> {
     ) {
         self.assert_can_draw();
         let radius = radius.into();
-        unsafe { sys::DrawEllipseLinesV(center.into().into(), radius.x, radius.y, color) };
+        unsafe { sys::DrawEllipseLinesV(center.into().into(), radius.x, radius.y, color.into()) };
     }
 
     fn draw_ring(
@@ -458,7 +480,7 @@ impl DrawTargetFull for DrawRenderTexture2D<'_> {
                 start_angle,
                 end_angle,
                 segments as _,
-                color,
+                color.into(),
             )
         };
     }
@@ -482,7 +504,7 @@ impl DrawTargetFull for DrawRenderTexture2D<'_> {
                 start_angle,
                 end_angle,
                 segments as _,
-                color,
+                color.into(),
             )
         };
     }
@@ -497,7 +519,13 @@ impl DrawTargetFull for DrawRenderTexture2D<'_> {
     ) {
         self.assert_can_draw();
         unsafe {
-            sys::DrawRectangleGradientEx(rect, top_left, top_right, bottom_left, bottom_right)
+            sys::DrawRectangleGradientEx(
+                rect,
+                top_left.into(),
+                top_right.into(),
+                bottom_left.into(),
+                bottom_right.into(),
+            )
         };
     }
 
@@ -509,7 +537,7 @@ impl DrawTargetFull for DrawRenderTexture2D<'_> {
         color: Color,
     ) {
         self.assert_can_draw();
-        unsafe { sys::DrawRectanglePro(rect, origin.into().into(), rotation, color) };
+        unsafe { sys::DrawRectanglePro(rect, origin.into().into(), rotation, color.into()) };
     }
 
     fn draw_rectangle_rounded(
@@ -520,7 +548,7 @@ impl DrawTargetFull for DrawRenderTexture2D<'_> {
         color: Color,
     ) {
         self.assert_can_draw();
-        unsafe { sys::DrawRectangleRounded(rect, roundness, segments as _, color) };
+        unsafe { sys::DrawRectangleRounded(rect, roundness, segments as _, color.into()) };
     }
 
     fn draw_rectangle_rounded_lines(
@@ -532,7 +560,9 @@ impl DrawTargetFull for DrawRenderTexture2D<'_> {
         color: Color,
     ) {
         self.assert_can_draw();
-        unsafe { sys::DrawRectangleRoundedLinesEx(rect, roundness, segments as _, thick, color) };
+        unsafe {
+            sys::DrawRectangleRoundedLinesEx(rect, roundness, segments as _, thick, color.into())
+        };
     }
 
     fn draw_poly(
@@ -544,7 +574,15 @@ impl DrawTargetFull for DrawRenderTexture2D<'_> {
         color: Color,
     ) {
         self.assert_can_draw();
-        unsafe { sys::DrawPoly(center.into().into(), sides as _, radius, rotation, color) };
+        unsafe {
+            sys::DrawPoly(
+                center.into().into(),
+                sides as _,
+                radius,
+                rotation,
+                color.into(),
+            )
+        };
     }
 
     fn draw_poly_lines(
@@ -564,39 +602,68 @@ impl DrawTargetFull for DrawRenderTexture2D<'_> {
                 radius,
                 rotation,
                 thick,
-                color,
+                color.into(),
             )
         };
     }
 
     fn draw_spline_linear(&mut self, points: &[Vector2], thick: f32, color: Color) {
         self.assert_can_draw();
-        unsafe { sys::DrawSplineLinear(points.as_ptr().cast(), points.len() as _, thick, color) };
+        unsafe {
+            sys::DrawSplineLinear(
+                points.as_ptr().cast(),
+                points.len() as _,
+                thick,
+                color.into(),
+            )
+        };
     }
 
     fn draw_spline_basis(&mut self, points: &[Vector2], thick: f32, color: Color) {
         self.assert_can_draw();
-        unsafe { sys::DrawSplineBasis(points.as_ptr().cast(), points.len() as _, thick, color) };
+        unsafe {
+            sys::DrawSplineBasis(
+                points.as_ptr().cast(),
+                points.len() as _,
+                thick,
+                color.into(),
+            )
+        };
     }
 
     fn draw_spline_catmull_rom(&mut self, points: &[Vector2], thick: f32, color: Color) {
         self.assert_can_draw();
         unsafe {
-            sys::DrawSplineCatmullRom(points.as_ptr().cast(), points.len() as _, thick, color)
+            sys::DrawSplineCatmullRom(
+                points.as_ptr().cast(),
+                points.len() as _,
+                thick,
+                color.into(),
+            )
         };
     }
 
     fn draw_spline_bezier_quadratic(&mut self, points: &[Vector2], thick: f32, color: Color) {
         self.assert_can_draw();
         unsafe {
-            sys::DrawSplineBezierQuadratic(points.as_ptr().cast(), points.len() as _, thick, color)
+            sys::DrawSplineBezierQuadratic(
+                points.as_ptr().cast(),
+                points.len() as _,
+                thick,
+                color.into(),
+            )
         };
     }
 
     fn draw_spline_bezier_cubic(&mut self, points: &[Vector2], thick: f32, color: Color) {
         self.assert_can_draw();
         unsafe {
-            sys::DrawSplineBezierCubic(points.as_ptr().cast(), points.len() as _, thick, color)
+            sys::DrawSplineBezierCubic(
+                points.as_ptr().cast(),
+                points.len() as _,
+                thick,
+                color.into(),
+            )
         };
     }
 
@@ -608,7 +675,9 @@ impl DrawTargetFull for DrawRenderTexture2D<'_> {
         color: Color,
     ) {
         self.assert_can_draw();
-        unsafe { sys::DrawSplineSegmentLinear(p1.into().into(), p2.into().into(), thick, color) };
+        unsafe {
+            sys::DrawSplineSegmentLinear(p1.into().into(), p2.into().into(), thick, color.into())
+        };
     }
 
     fn draw_spline_segment_basis(
@@ -628,7 +697,7 @@ impl DrawTargetFull for DrawRenderTexture2D<'_> {
                 p3.into().into(),
                 p4.into().into(),
                 thick,
-                color,
+                color.into(),
             )
         };
     }
@@ -650,7 +719,7 @@ impl DrawTargetFull for DrawRenderTexture2D<'_> {
                 p3.into().into(),
                 p4.into().into(),
                 thick,
-                color,
+                color.into(),
             )
         };
     }
@@ -670,7 +739,7 @@ impl DrawTargetFull for DrawRenderTexture2D<'_> {
                 p2.into().into(),
                 p3.into().into(),
                 thick,
-                color,
+                color.into(),
             )
         };
     }
@@ -692,7 +761,7 @@ impl DrawTargetFull for DrawRenderTexture2D<'_> {
                 p3.into().into(),
                 p4.into().into(),
                 thick,
-                color,
+                color.into(),
             )
         };
     }
@@ -713,7 +782,7 @@ impl DrawTargetFull for DrawRenderTexture2D<'_> {
                 position.into().into(),
                 rotation,
                 scale,
-                tint,
+                tint.into(),
             )
         };
     }
@@ -736,7 +805,7 @@ impl DrawTargetFull for DrawRenderTexture2D<'_> {
                 dst,
                 origin.into().into(),
                 rotation,
-                tint,
+                tint.into(),
             )
         };
     }

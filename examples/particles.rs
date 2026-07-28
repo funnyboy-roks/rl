@@ -32,7 +32,10 @@ impl Particle {
             .color(self.color.alpha(1. - self.age / self.max_age))
             .draw();
 
-        if !frame.bounds().check_collision_recs(rect) {
+        // if the particle is to the left or right of the screen and heading away from it
+        if (self.pos.x < 0. && self.velocity.x < 0.)
+            || (self.pos.x > frame.width() as f32 && self.velocity.x > 0.)
+        {
             return false;
         }
 
@@ -42,6 +45,12 @@ impl Particle {
 
         self.age += frame.get_time();
         self.rotation += 0.1;
+
+        if self.pos.y > frame.height() as f32 {
+            self.pos.y = frame.height() as _;
+            self.velocity = Vector2::ZERO;
+            self.rotation = 0.;
+        }
 
         true
     }
@@ -71,7 +80,7 @@ fn main() {
 
     let mut particles: VecDeque<Particle> = VecDeque::with_capacity(1000);
 
-    let mut prev_mouse = Vector2::zero();
+    let mut prev_mouse = Vector2::ZERO;
     while let Some(mut frame) = window.next_frame() {
         frame.clear_background(Color::BLACK);
 
@@ -83,7 +92,7 @@ fn main() {
             .mouse()
             .is_button_pressed(MouseButton::MOUSE_BUTTON_LEFT)
         {
-            let colour = Color::color_from_hsv(f32::random() * 360., 1., 1.);
+            let colour = Color::from_hsv(f32::random() * 360., 1., 1.);
             generate_particles(&mut particles, 1000, mouse, colour);
         }
 
@@ -93,7 +102,7 @@ fn main() {
         {
             let prev_to_curr = mouse - prev_mouse;
             for i in 0..=1000 {
-                let colour = Color::color_from_hsv(f32::random() * 360., 1., 1.);
+                let colour = Color::from_hsv(f32::random() * 360., 1., 1.);
                 let pos = prev_mouse.lerp(mouse, i as f32 / 1000.);
 
                 let dir = Vector2::random() + prev_to_curr * 0.05;

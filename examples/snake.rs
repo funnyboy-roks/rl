@@ -116,7 +116,7 @@ fn main() {
                             width: cell_size as f32 - 30.,
                             height: cell_size as f32 - 30.,
                         },
-                        Color::DARKRED,
+                        Color::MAROON,
                     );
                 }
 

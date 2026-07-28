@@ -28,10 +28,10 @@ fn main() {
     .expect("Invalid shader");
 
     while let Some(mut frame) = win.next_frame() {
-        frame.clear_background(Color::get_color(0x181818ff));
-        let handle = shader.begin_mode();
-        // frame.draw_text("hello world", (400., 300.), 32, Color::RED);
-        frame.draw_rectangle(frame.bounds(), Color::WHITE);
-        drop(handle);
+        frame.clear_background(Color::from_int(0x181818ff));
+        shader.with(|| {
+            // frame.draw_text("hello world", (400., 300.), 32, Color::RED);
+            frame.draw_rectangle(frame.bounds(), Color::WHITE);
+        });
     }
 }

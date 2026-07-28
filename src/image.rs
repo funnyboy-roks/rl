@@ -116,7 +116,7 @@ impl Image {
     /// Get image pixel color at (x, y) position
     pub fn get_color(&mut self, position: impl Into<Vector2>) -> Color {
         let position = position.into();
-        unsafe { sys::GetImageColor(self.0, position.x as _, position.y as _) }
+        unsafe { sys::GetImageColor(self.0, position.x as _, position.y as _) }.into()
     }
 
     pub fn set_format(&mut self, format: PixelFormat) {
@@ -125,7 +125,7 @@ impl Image {
 
     /// Convert image to POT (power-of-two)
     pub fn to_pot(&mut self, fill: Color) {
-        unsafe { sys::ImageToPOT(&raw mut self.0, fill) };
+        unsafe { sys::ImageToPOT(&raw mut self.0, fill.into()) };
     }
 
     pub fn crop(&mut self, area: Rectangle) {
@@ -139,7 +139,7 @@ impl Image {
 
     /// Clear alpha channel to desired color
     pub fn alpha_clear(&mut self, color: Color, threshold: f32) {
-        unsafe { sys::ImageAlphaClear(&raw mut self.0, color, threshold) };
+        unsafe { sys::ImageAlphaClear(&raw mut self.0, color.into(), threshold) };
     }
 
     /// Apply alpha mask to image
@@ -200,7 +200,7 @@ impl Image {
                 new_height as _,
                 offset.0,
                 offset.1,
-                fill,
+                fill.into(),
             )
         };
     }
@@ -250,7 +250,7 @@ impl Image {
 
     /// Modify image color: tint
     pub fn tint(&mut self, tint: Color) {
-        unsafe { sys::ImageColorTint(&raw mut self.0, tint) };
+        unsafe { sys::ImageColorTint(&raw mut self.0, tint.into()) };
     }
 
     /// Modify image color: invert
@@ -275,16 +275,18 @@ impl Image {
 
     /// Modify image color: replace color
     pub fn color_replace(&mut self, from: Color, to: Color) {
-        unsafe { sys::ImageColorReplace(&raw mut self.0, from, to) };
+        unsafe { sys::ImageColorReplace(&raw mut self.0, from.into(), to.into()) };
     }
 
     /// Load color data from image as a Color array (RGBA - 32bit)
     pub fn load_colors(&mut self) -> RlSlice<Color> {
         let colors = unsafe { sys::LoadImageColors(self.0) };
         unsafe {
-            RlSlice::from_raw_parts(colors, (self.width() * self.height()) as usize, |ptr| {
-                sys::UnloadImageColors(ptr)
-            })
+            RlSlice::from_raw_parts(
+                colors.cast(), // okay because Color and sys::Color have the same layout
+                (self.width() * self.height()) as usize,
+                |ptr| sys::UnloadImageColors(ptr.cast()),
+            )
         }
     }
 
@@ -293,7 +295,13 @@ impl Image {
         let mut len = 0usize;
         let colors =
             unsafe { sys::LoadImagePalette(self.0, max_palette_size as _, (&raw mut len).cast()) };
-        unsafe { RlSlice::from_raw_parts(colors, len, |ptr| sys::UnloadImagePalette(ptr)) }
+        unsafe {
+            RlSlice::from_raw_parts(
+                colors.cast(), // okay because Color and sys::Color have the same layout
+                len,
+                |ptr| sys::UnloadImagePalette(ptr.cast()),
+            )
+        }
     }
 
     /// Get image alpha border rectangle
@@ -427,7 +435,7 @@ impl Image {
 
     pub fn from_text(text: impl AsRef<str>, font_size: u32, color: Color) -> Self {
         let text = CString::new(text.as_ref()).expect("str has no null");
-        Self::from_sys(unsafe { sys::ImageText(text.as_ptr(), font_size as _, color) })
+        Self::from_sys(unsafe { sys::ImageText(text.as_ptr(), font_size as _, color.into()) })
             .expect("ImageText is infallible")
     }
 
@@ -455,7 +463,7 @@ impl Image {
 /// Generate
 impl Image {
     pub fn gen_color(width: u32, height: u32, color: Color) -> Self {
-        Self(unsafe { sys::GenImageColor(width as _, height as _, color) })
+        Self(unsafe { sys::GenImageColor(width as _, height as _, color.into()) })
     }
 
     /// Generate image: linear gradient, direction in degrees [0..360], 0=Vertical gradient
@@ -467,7 +475,13 @@ impl Image {
         end: Color,
     ) -> Self {
         Self(unsafe {
-            sys::GenImageGradientLinear(width as _, height as _, direction as _, start, end)
+            sys::GenImageGradientLinear(
+                width as _,
+                height as _,
+                direction as _,
+                start.into(),
+                end.into(),
+            )
         })
     }
 
@@ -479,7 +493,15 @@ impl Image {
         inner: Color,
         outer: Color,
     ) -> Self {
-        Self(unsafe { sys::GenImageGradientRadial(width as _, height as _, density, inner, outer) })
+        Self(unsafe {
+            sys::GenImageGradientRadial(
+                width as _,
+                height as _,
+                density,
+                inner.into(),
+                outer.into(),
+            )
+        })
     }
 
     /// Generate image: square gradient
@@ -490,7 +512,15 @@ impl Image {
         inner: Color,
         outer: Color,
     ) -> Self {
-        Self(unsafe { sys::GenImageGradientSquare(width as _, height as _, density, inner, outer) })
+        Self(unsafe {
+            sys::GenImageGradientSquare(
+                width as _,
+                height as _,
+                density,
+                inner.into(),
+                outer.into(),
+            )
+        })
     }
 
     /// Generate image: checked
@@ -508,8 +538,8 @@ impl Image {
                 height as _,
                 checks_x as _,
                 checks_y as _,
-                col1,
-                col2,
+                col1.into(),
+                col2.into(),
             )
         })
     }
@@ -543,7 +573,7 @@ impl Image {
 /// Extra Drawing Functions
 impl Image {
     pub fn draw_image(&mut self, image: &Image, src: Rectangle, dst: Rectangle, tint: Color) {
-        unsafe { sys::ImageDraw(&raw mut self.0, image.0, src, dst, tint) };
+        unsafe { sys::ImageDraw(&raw mut self.0, image.0, src, dst, tint.into()) };
     }
 
     pub fn draw_triangle_ex(
@@ -558,9 +588,9 @@ impl Image {
                 p1.0.into().into(),
                 p2.0.into().into(),
                 p3.0.into().into(),
-                p1.1,
-                p2.1,
-                p3.1,
+                p1.1.into(),
+                p2.1.into(),
+                p3.1.into(),
             )
         };
     }
@@ -578,11 +608,11 @@ impl Bounded for Image {
 
 impl DrawTarget for Image {
     fn clear_background(&mut self, color: Color) {
-        unsafe { sys::ImageClearBackground(&raw mut self.0, color) };
+        unsafe { sys::ImageClearBackground(&raw mut self.0, color.into()) };
     }
 
     fn draw_pixel(&mut self, position: impl Into<Vector2>, color: Color) {
-        unsafe { sys::ImageDrawPixelV(&raw mut self.0, position.into().into(), color) };
+        unsafe { sys::ImageDrawPixelV(&raw mut self.0, position.into().into(), color.into()) };
     }
 
     fn draw_line(
@@ -598,7 +628,7 @@ impl DrawTarget for Image {
                 from.into().into(),
                 to.into().into(),
                 thick as _,
-                color,
+                color.into(),
             )
         };
     }
@@ -611,23 +641,30 @@ impl DrawTarget for Image {
                 center.x as _,
                 center.y as _,
                 radius as _,
-                color,
+                color.into(),
             )
         };
     }
 
     fn draw_circle_lines(&mut self, center: impl Into<Vector2>, radius: f32, color: Color) {
         unsafe {
-            sys::ImageDrawCircleLinesV(&raw mut self.0, center.into().into(), radius as _, color)
+            sys::ImageDrawCircleLinesV(
+                &raw mut self.0,
+                center.into().into(),
+                radius as _,
+                color.into(),
+            )
         };
     }
 
     fn draw_rectangle(&mut self, rect: Rectangle, color: Color) {
-        unsafe { sys::ImageDrawRectangleRec(&raw mut self.0, rect, color) };
+        unsafe { sys::ImageDrawRectangleRec(&raw mut self.0, rect, color.into()) };
     }
 
     fn draw_rectangle_lines(&mut self, rect: Rectangle, line_thick: f32, color: Color) {
-        unsafe { sys::ImageDrawRectangleLines(&raw mut self.0, rect, line_thick as _, color) };
+        unsafe {
+            sys::ImageDrawRectangleLines(&raw mut self.0, rect, line_thick as _, color.into())
+        };
     }
 
     fn draw_triangle(
@@ -653,7 +690,7 @@ impl DrawTarget for Image {
                 p1.into().into(),
                 p2.into().into(),
                 p3.into().into(),
-                color,
+                color.into(),
             )
         };
     }
@@ -664,7 +701,7 @@ impl DrawTarget for Image {
                 &raw mut self.0,
                 points.as_ptr().cast(),
                 points.len() as _,
-                color,
+                color.into(),
             )
         };
     }
@@ -675,7 +712,7 @@ impl DrawTarget for Image {
                 &raw mut self.0,
                 points.as_ptr().cast(),
                 points.len() as _,
-                color,
+                color.into(),
             )
         };
     }
@@ -696,7 +733,7 @@ impl DrawTarget for Image {
                 pos.x as _,
                 pos.y as _,
                 font_size as _,
-                color,
+                color.into(),
             )
         };
     }

@@ -15,8 +15,8 @@ fn main() {
     let mut window = Window::builder().title("hello world").size(800, 600).init();
 
     let ball_radius = 10.;
-    let mut ball_pos = Vector2::zero();
-    let mut ball_vel = Vector2::zero();
+    let mut ball_pos = Vector2::ZERO;
+    let mut ball_vel = Vector2::ZERO;
     reset(&mut ball_pos, &mut ball_vel);
 
     let player_speed = 500.;
