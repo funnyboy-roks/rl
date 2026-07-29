@@ -1,238 +1,72 @@
-use std::sync::atomic::Ordering;
-use std::{ffi::CString, marker::PhantomData};
+use std::{ffi::CString, sync::atomic::Ordering};
 
-use derive_more::{Deref, DerefMut};
-use raylib_sys::{self as sys};
+use crate::{
+    Canvas, Rectangle,
+    color::Color,
+    draw::{DrawTarget, DrawTargetFull},
+    globals::{DRAWING_TO_CAMERA, DRAWING_TO_TEXTURE, WINDOW_INITIALISED},
+    math::Vector2,
+    texture::Texture2D,
+};
 
-pub use raylib_sys::{KeyboardKey, MouseButton, Rectangle};
+use raylib_sys as sys;
 
-use crate::camera::{Camera2D, Camera2DCanvas};
-use crate::color::Color;
-use crate::draw::{DrawTarget, DrawTargetFull};
-use crate::globals::{DRAWING_TO_CAMERA, DRAWING_TO_TEXTURE, WINDOW_INITIALISED};
-use crate::image::Image;
-use crate::math::Vector2;
-use crate::texture::Texture2D;
-use crate::window::Window;
-
-pub mod bytes;
-pub mod camera;
-pub mod color;
-pub mod draw;
-mod globals;
-pub mod image;
-pub mod math;
-pub mod rand;
-pub mod shader;
-pub mod text;
-pub mod texture;
-mod util;
-pub mod window;
-
-pub mod prelude {
-    pub use crate::{
-        Bounded, KeyboardKey, MouseButton, Rectangle,
-        color::Color,
-        draw::{DrawTarget, DrawTargetFull},
-        image::{FileType, Image, ImageResizeMode},
-        math::{Vector2, Vector3, Vector4},
-        rand::Random,
-        shader,
-        shader::Shader,
-        texture::{RenderTexture2D, Texture2D},
-        window::{ConfigFlags, Window},
-    };
+#[derive(bauer::Builder, Clone, Copy, Debug)]
+pub struct Camera2D {
+    /// Camera offset (screen space offset from window origin)
+    #[builder(default)]
+    pub offset: Vector2,
+    /// Camera target (world space target point that is mapped to screen space offset)
+    #[builder(default)]
+    pub target: Vector2,
+    /// Camera rotation in degrees (pivots around target)
+    #[builder(default)]
+    pub rotation: f32,
+    /// Camera zoom (scaling around target), must not be set to 0, set to 1. for no scale
+    #[builder(default = "1.")]
+    pub zoom: f32,
 }
 
-pub trait Bounded {
-    fn width(&self) -> u32;
-    fn height(&self) -> u32;
-    fn size(&self) -> Vector2 {
-        Vector2::new(self.width() as _, self.height() as _)
-    }
-    fn bounds(&self) -> sys::Rectangle {
-        Rectangle::new(0., 0., self.width() as _, self.height() as _)
-    }
-}
-
-#[derive(Debug)]
-pub struct Mouse<'frame>(PhantomData<&'frame ()>);
-
-impl Mouse<'_> {
-    pub fn position(&self) -> Vector2 {
-        unsafe { sys::GetMousePosition() }.into()
-    }
-
-    pub fn delta(&self) -> Vector2 {
-        unsafe { sys::GetMouseDelta() }.into()
-    }
-
-    pub fn wheel_move(&self) -> f32 {
-        unsafe { sys::GetMouseWheelMove() }
-    }
-
-    pub fn wheel_move_v(&self) -> Vector2 {
-        unsafe { sys::GetMouseWheelMoveV() }.into()
-    }
-
-    pub fn show_cursor(&mut self) {
-        unsafe { sys::ShowCursor() }
-    }
-
-    pub fn hide_cursor(&mut self) {
-        unsafe { sys::HideCursor() }
-    }
-
-    pub fn is_cursor_hidden(&self) -> bool {
-        unsafe { sys::IsCursorHidden() }
-    }
-
-    pub fn enable_cursor(&mut self) {
-        unsafe { sys::EnableCursor() }
-    }
-
-    pub fn disable_cursor(&mut self) {
-        unsafe { sys::DisableCursor() }
-    }
-
-    pub fn is_cursor_on_screen(&self) -> bool {
-        unsafe { sys::IsCursorOnScreen() }
-    }
-
-    pub fn is_button_pressed(&self, button: MouseButton) -> bool {
-        unsafe { sys::IsMouseButtonPressed(button as _) }
-    }
-
-    pub fn is_button_down(&self, button: MouseButton) -> bool {
-        unsafe { sys::IsMouseButtonDown(button as _) }
-    }
-
-    pub fn is_button_released(&self, button: MouseButton) -> bool {
-        unsafe { sys::IsMouseButtonReleased(button as _) }
-    }
-
-    pub fn is_button_up(&self, button: MouseButton) -> bool {
-        unsafe { sys::IsMouseButtonUp(button as _) }
-    }
-}
-
-#[derive(Deref, DerefMut)]
-pub struct Canvas<'window> {
-    frame: Frame<'window>,
-}
-
-pub struct Frame<'window> {
-    window: &'window mut Window,
-}
-
-impl<'w> Frame<'w> {
-    /// # SAFETY
-    ///
-    /// This is a placeholder value.  If it is used, things will break.
-    unsafe fn empty() -> Frame<'static> {
-        Frame {
-            // SAFETY: NOT SAFE!!!! DO NOT DEREFERENCE!
-            #[expect(invalid_value)]
-            window: unsafe { std::mem::transmute::<usize, &'static mut Window>(0_usize) },
+impl Default for Camera2D {
+    fn default() -> Self {
+        Self {
+            offset: Default::default(),
+            target: Default::default(),
+            rotation: Default::default(),
+            zoom: 1.,
         }
     }
+}
 
-    pub fn window(&self) -> &Window {
-        self.window
-    }
-
-    pub fn window_mut(&mut self) -> &mut Window {
-        self.window
-    }
-
-    pub fn mouse<'f>(&'f self) -> &'f Mouse<'f> {
-        &Mouse(PhantomData)
-    }
-
-    pub fn mouse_mut<'f>(&'f mut self) -> &'f mut Mouse<'f> {
-        // SAFETY: This is wildly unsafe, but since Mouse is zero-sized and we never use the value
-        // of the reference itself, it's fine
-        #[allow(mutable_transmutes)]
-        unsafe {
-            std::mem::transmute(&Mouse(PhantomData))
+impl Camera2D {
+    fn to_sys(self) -> sys::Camera2D {
+        sys::Camera2D {
+            offset: self.offset.into(),
+            target: self.target.into(),
+            rotation: self.rotation,
+            zoom: self.zoom,
         }
     }
-
-    pub fn get_time(&self) -> f32 {
-        unsafe { sys::GetFrameTime() }
-    }
-
-    /// The number of frames that have run
-    pub fn count(&self) -> u64 {
-        // Because we increment at the start, we need to subtract one for an accurate count
-        self.window().frame_count - 1
-    }
-
-    pub fn is_key_pressed(&self, key: KeyboardKey) -> bool {
-        unsafe { sys::IsKeyPressed(key as _) }
-    }
-
-    pub fn is_key_pressed_repeat(&self, key: KeyboardKey) -> bool {
-        unsafe { sys::IsKeyPressedRepeat(key as _) }
-    }
-
-    pub fn is_key_down(&self, key: KeyboardKey) -> bool {
-        unsafe { sys::IsKeyDown(key as _) }
-    }
-
-    pub fn is_key_released(&self, key: KeyboardKey) -> bool {
-        unsafe { sys::IsKeyReleased(key as _) }
-    }
-
-    pub fn is_key_up(&self, key: KeyboardKey) -> bool {
-        unsafe { sys::IsKeyUp(key as _) }
-    }
-
-    // TODO
-    // pub fn get_key_pressed(&self, key: KeyboardKey) -> KeyboardKey {
-    //     unsafe { sys::GetKeyPressed() }
-    // }
-
-    pub fn begin_drawing(self) -> Canvas<'w> {
-        Canvas::assert_can_draw();
-        unsafe { sys::BeginDrawing() };
-        Canvas { frame: self }
-    }
-
-    pub fn with_canvas<F>(&mut self, f: F)
-    where
-        F: FnOnce(&mut Canvas<'w>),
-    {
-        // SAFETY: we never use &mut self again.  (until we give it a valid value again
-        let this = std::mem::replace(self, unsafe { Self::empty() });
-        let mut canvas = this.begin_drawing();
-        f(&mut canvas);
-        canvas.end();
-    }
 }
 
-impl Bounded for Frame<'_> {
-    fn width(&self) -> u32 {
-        self.window().width()
-    }
-
-    fn height(&self) -> u32 {
-        self.window().height()
-    }
+pub struct Camera2DCanvas<'window, 'canvas> {
+    canvas: &'canvas mut Canvas<'window>,
+    _camera: Camera2D,
 }
 
-impl<'w> Canvas<'w> {
-    /// End drawing the current frame
-    ///
-    /// This function should only be needed if you wish to use the frame again after drawing,
-    /// otherwise, drop will make the appropriate call
-    pub fn end(self) -> Frame<'w> {
-        let mut this = self;
-        std::mem::replace(
-            &mut this.frame,
-            // SAFETY: This is okay because the destructor does not attempt to access `self.frame`
-            unsafe { Frame::empty() },
-        )
+impl<'w, 'c> Camera2DCanvas<'w, 'c> {
+    pub(crate) fn new(canvas: &'c mut Canvas<'w>, camera: Camera2D) -> Self {
+        if DRAWING_TO_CAMERA
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Acquire)
+            .is_err()
+        {
+            panic!("Only one camera may be drawn to at a time.");
+        }
+        unsafe { sys::BeginMode2D(camera.to_sys()) }
+        Self {
+            canvas,
+            _camera: camera,
+        }
     }
 
     #[inline]
@@ -240,7 +74,7 @@ impl<'w> Canvas<'w> {
         // window is initialised and we are not drawing to a texture
         WINDOW_INITIALISED.load(Ordering::Acquire)
             && !DRAWING_TO_TEXTURE.load(Ordering::Acquire)
-            && !DRAWING_TO_CAMERA.load(Ordering::Acquire)
+            && DRAWING_TO_CAMERA.load(Ordering::Acquire)
     }
 
     #[inline]
@@ -253,50 +87,32 @@ impl<'w> Canvas<'w> {
             !DRAWING_TO_TEXTURE.load(Ordering::Acquire),
             "Cannot draw to frame while drawing to texture"
         );
+        assert!(
+            DRAWING_TO_CAMERA.load(Ordering::Acquire),
+            "Attempting to draw to uninitialsed camera"
+        );
         assert!(Self::can_draw());
     }
 
-    pub fn camera_mode_2d<'c>(&'c mut self, camera: Camera2D) -> Camera2DCanvas<'w, 'c> {
-        Camera2DCanvas::new(self, camera)
-    }
-
-    pub fn with_camera_mode_2d<'c, F>(&'c mut self, camera: Camera2D, f: F)
-    where
-        F: FnOnce(&mut Camera2DCanvas<'w, 'c>),
-    {
-        let mut cc = Camera2DCanvas::new(self, camera);
-        f(&mut cc);
-        drop(cc);
-    }
-
-    pub fn draw_fps(&mut self, x: i32, y: i32) {
-        Self::assert_can_draw();
-        unsafe { sys::DrawFPS(x, y) }
+    // A bit more ergonmic way to drop self
+    pub fn end(self) {
+        drop(self);
     }
 }
 
-impl Drop for Canvas<'_> {
+impl<'w, 'c> Drop for Camera2DCanvas<'w, 'c> {
     fn drop(&mut self) {
-        // XXX: This function should not access `self.frame` as its value may not be safe to use
-        // (see `end_drawing`)
-
-        // SAFETY: We started drawing when this struct was created and we are stopping now that it's
-        // being destructed
-        unsafe { sys::EndDrawing() };
+        if DRAWING_TO_CAMERA
+            .compare_exchange(true, false, Ordering::Acquire, Ordering::Acquire)
+            .is_err()
+        {
+            panic!("Attempted to end camera drawing without calling BeginCamera2D");
+        }
+        unsafe { sys::EndMode2D() }
     }
 }
 
-impl Bounded for Canvas<'_> {
-    fn width(&self) -> u32 {
-        self.frame.width()
-    }
-
-    fn height(&self) -> u32 {
-        self.frame.height()
-    }
-}
-
-impl DrawTarget for Canvas<'_> {
+impl DrawTarget for Camera2DCanvas<'_, '_> {
     fn clear_background(&mut self, color: Color) {
         Self::assert_can_draw();
         unsafe { sys::ClearBackground(color.into()) }
@@ -409,7 +225,7 @@ impl DrawTarget for Canvas<'_> {
     }
 }
 
-impl DrawTargetFull for Canvas<'_> {
+impl DrawTargetFull for Camera2DCanvas<'_, '_> {
     fn draw_line_strip(&mut self, points: &[Vector2], color: Color) {
         Self::assert_can_draw();
         // cast here is fine because both Vector2s have the same layout
@@ -840,7 +656,11 @@ impl DrawTargetFull for Canvas<'_> {
         tint: Color,
     ) {
         Self::assert_can_draw();
-        self.frame.window.resources.push(Box::new(texture.clone()));
+        self.canvas
+            .frame
+            .window
+            .resources
+            .push(Box::new(texture.clone()));
         unsafe {
             sys::DrawTextureEx(
                 *texture.inner(),
@@ -862,7 +682,11 @@ impl DrawTargetFull for Canvas<'_> {
         tint: Color,
     ) {
         Self::assert_can_draw();
-        self.frame.window.resources.push(Box::new(texture.clone()));
+        self.canvas
+            .frame
+            .window
+            .resources
+            .push(Box::new(texture.clone()));
         unsafe {
             sys::DrawTexturePro(
                 *texture.inner(),

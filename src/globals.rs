@@ -6,3 +6,7 @@ pub(crate) static WINDOW_INITIALISED: AtomicBool = AtomicBool::new(false);
 /// Whether `BeginTextureMode()` has been called and all draw calls are being applied to a render
 /// texture.  If this is true, then draw calls on `frame` must fail.
 pub(crate) static DRAWING_TO_TEXTURE: AtomicBool = AtomicBool::new(false);
+
+/// Whether `BeginCamera2D()` has been called and all draw calls are being applied to a camera. If
+/// this is true, then draw calls on `frame` must fail.
+pub(crate) static DRAWING_TO_CAMERA: AtomicBool = AtomicBool::new(false);
