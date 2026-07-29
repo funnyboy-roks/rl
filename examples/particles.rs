@@ -84,18 +84,12 @@ fn main() {
     while let Some(frame) = window.next_frame() {
         let mouse = frame.mouse().position();
 
-        if frame
-            .mouse()
-            .is_button_pressed(MouseButton::MOUSE_BUTTON_LEFT)
-        {
+        if frame.mouse().is_button_pressed(MouseButton::Left) {
             let colour = Color::from_hsv(f32::random() * 360., 1., 1.);
             generate_particles(&mut particles, 1000, mouse, colour);
         }
 
-        if frame
-            .mouse()
-            .is_button_down(MouseButton::MOUSE_BUTTON_RIGHT)
-        {
+        if frame.mouse().is_button_down(MouseButton::Right) {
             let prev_to_curr = mouse - prev_mouse;
             for i in 0..=1000 {
                 let colour = Color::from_hsv(f32::random() * 360., 1., 1.);

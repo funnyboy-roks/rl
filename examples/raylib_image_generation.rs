@@ -28,7 +28,7 @@ fn main() {
 
     let mut current_texture = 0;
     while let Some(frame) = window.next_frame() {
-        if frame.is_key_pressed(KeyboardKey::KEY_SPACE) {
+        if frame.keyboard().is_key_pressed(KeyboardKey::Space) {
             current_texture += 1;
             current_texture %= textures.len();
         }

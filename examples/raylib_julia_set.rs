@@ -154,20 +154,20 @@ fn main() {
             t.draw_rectangle(t.bounds(), Color::BLACK);
         });
 
-        if frame.is_key_pressed(KeyboardKey::KEY_ONE)
-            || frame.is_key_pressed(KeyboardKey::KEY_TWO)
-            || frame.is_key_pressed(KeyboardKey::KEY_THREE)
-            || frame.is_key_pressed(KeyboardKey::KEY_FOUR)
-            || frame.is_key_pressed(KeyboardKey::KEY_FIVE)
-            || frame.is_key_pressed(KeyboardKey::KEY_SIX)
+        if frame.keyboard().is_key_pressed(KeyboardKey::One)
+            || frame.keyboard().is_key_pressed(KeyboardKey::Two)
+            || frame.keyboard().is_key_pressed(KeyboardKey::Three)
+            || frame.keyboard().is_key_pressed(KeyboardKey::Four)
+            || frame.keyboard().is_key_pressed(KeyboardKey::Five)
+            || frame.keyboard().is_key_pressed(KeyboardKey::Six)
         {
             c = match () {
-                _ if frame.is_key_pressed(KeyboardKey::KEY_ONE) => POINTS_OF_INTEREST[0],
-                _ if frame.is_key_pressed(KeyboardKey::KEY_TWO) => POINTS_OF_INTEREST[1],
-                _ if frame.is_key_pressed(KeyboardKey::KEY_THREE) => POINTS_OF_INTEREST[2],
-                _ if frame.is_key_pressed(KeyboardKey::KEY_FOUR) => POINTS_OF_INTEREST[3],
-                _ if frame.is_key_pressed(KeyboardKey::KEY_FIVE) => POINTS_OF_INTEREST[4],
-                _ if frame.is_key_pressed(KeyboardKey::KEY_SIX) => POINTS_OF_INTEREST[5],
+                _ if frame.keyboard().is_key_pressed(KeyboardKey::One) => POINTS_OF_INTEREST[0],
+                _ if frame.keyboard().is_key_pressed(KeyboardKey::Two) => POINTS_OF_INTEREST[1],
+                _ if frame.keyboard().is_key_pressed(KeyboardKey::Three) => POINTS_OF_INTEREST[2],
+                _ if frame.keyboard().is_key_pressed(KeyboardKey::Four) => POINTS_OF_INTEREST[3],
+                _ if frame.keyboard().is_key_pressed(KeyboardKey::Five) => POINTS_OF_INTEREST[4],
+                _ if frame.keyboard().is_key_pressed(KeyboardKey::Six) => POINTS_OF_INTEREST[5],
                 _ => unreachable!(),
             };
 
@@ -175,7 +175,7 @@ fn main() {
         }
 
         // If "R" is pressed, reset zoom and offset
-        if frame.is_key_pressed(KeyboardKey::KEY_R) {
+        if frame.keyboard().is_key_pressed(KeyboardKey::R) {
             zoom = STARTING_ZOOM;
             offset = Vector2::ZERO;
 
@@ -183,27 +183,25 @@ fn main() {
             offset_loc.set(offset);
         }
 
-        if frame.is_key_pressed(KeyboardKey::KEY_SPACE) {
+        if frame.keyboard().is_key_pressed(KeyboardKey::Space) {
             increment_speed = 0.
         } // Pause animation (c change)
-        if frame.is_key_pressed(KeyboardKey::KEY_F1) {
+        if frame.keyboard().is_key_pressed(KeyboardKey::F1) {
             show_controls = !show_controls
         } // Toggle whether or not to show controls
 
-        if frame.is_key_pressed(KeyboardKey::KEY_RIGHT) {
+        if frame.keyboard().is_key_pressed(KeyboardKey::Right) {
             increment_speed += 1.
-        } else if frame.is_key_pressed(KeyboardKey::KEY_LEFT) {
+        } else if frame.keyboard().is_key_pressed(KeyboardKey::Left) {
             increment_speed -= 1.
         }
 
         // If either left or right button is pressed, zoom in/out
-        if frame.mouse().is_button_down(MouseButton::MOUSE_BUTTON_LEFT)
-            || frame
-                .mouse()
-                .is_button_down(MouseButton::MOUSE_BUTTON_RIGHT)
+        if frame.mouse().is_button_down(MouseButton::Left)
+            || frame.mouse().is_button_down(MouseButton::Right)
         {
             // Change zoom. If Mouse left -> zoom in. Mouse right -> zoom out
-            if frame.mouse().is_button_down(MouseButton::MOUSE_BUTTON_LEFT) {
+            if frame.mouse().is_button_down(MouseButton::Left) {
                 zoom *= ZOOM_SPEED;
             } else {
                 zoom /= ZOOM_SPEED;
@@ -255,7 +253,7 @@ fn main() {
                 Color::RAYWHITE,
             );
             canvas.draw_text(
-                "Press KEY_F1 to toggle these controls",
+                "Press F1 to toggle these controls",
                 (10., 30.),
                 10,
                 Color::RAYWHITE,
@@ -267,19 +265,19 @@ fn main() {
                 Color::RAYWHITE,
             );
             canvas.draw_text(
-                "Press KEY_LEFT | KEY_RIGHT to change speed",
+                "Press LEFT | RIGHT to change speed",
                 (10., 60.),
                 10,
                 Color::RAYWHITE,
             );
             canvas.draw_text(
-                "Press KEY_SPACE to stop movement animation",
+                "Press SPACE to stop movement animation",
                 (10., 75.),
                 10,
                 Color::RAYWHITE,
             );
             canvas.draw_text(
-                "Press KEY_R to recenter the camera",
+                "Press R to recenter the camera",
                 (10., 90.),
                 10,
                 Color::RAYWHITE,

@@ -4,7 +4,7 @@ use std::{
     sync::atomic::Ordering,
 };
 
-use raylib_sys as sys;
+use raylib_sys::{self as sys, KeyboardKey};
 
 use crate::{Bounded, Frame, Image, Vector2, globals::WINDOW_INITIALISED};
 
@@ -160,6 +160,13 @@ impl Window {
         unsafe { sys::SetTargetFPS(target as _) }
     }
 
+    /// Set the exit key for the window (default Escape)
+    ///
+    /// If set to `None`, exit key will be unset
+    pub fn set_exit_key(&mut self, key: Option<KeyboardKey>) {
+        unsafe { sys::SetExitKey(key.unwrap_or(KeyboardKey::KEY_NULL) as u32 as i32) };
+    }
+
     /// Get the next frame
     pub fn next_frame<'w>(&'w mut self) -> Option<Frame<'w>> {
         self.resources.clear();
@@ -167,7 +174,8 @@ impl Window {
             None
         } else {
             self.frame_count += 1;
-            Some(Frame { window: self })
+            // SAFETY: WindowShouldClose called by self.should_close
+            Some(unsafe { Frame::new(self) })
         }
     }
 }

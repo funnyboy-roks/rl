@@ -1,16 +1,17 @@
+use std::ffi::CString;
 use std::sync::atomic::Ordering;
-use std::{ffi::CString, marker::PhantomData};
 
 use derive_more::{Deref, DerefMut};
 use raylib_sys::{self as sys};
 
-pub use raylib_sys::{KeyboardKey, MouseButton, Rectangle};
+pub use raylib_sys::{MouseButton, Rectangle};
 
 use crate::camera::{Camera2D, Camera2DCanvas};
 use crate::color::Color;
 use crate::draw::{DrawTarget, DrawTargetFull};
 use crate::globals::{DRAWING_TO_CAMERA, DRAWING_TO_TEXTURE, WINDOW_INITIALISED};
 use crate::image::Image;
+use crate::input::{Gamepad, Keyboard, Mouse};
 use crate::math::Vector2;
 use crate::texture::Texture2D;
 use crate::window::Window;
@@ -21,6 +22,7 @@ pub mod color;
 pub mod draw;
 mod globals;
 pub mod image;
+pub mod input;
 pub mod math;
 pub mod rand;
 pub mod shader;
@@ -31,10 +33,12 @@ pub mod window;
 
 pub mod prelude {
     pub use crate::{
-        Bounded, KeyboardKey, MouseButton, Rectangle,
+        Bounded, Rectangle,
+        camera::Camera2D,
         color::Color,
         draw::{DrawTarget, DrawTargetFull},
         image::{FileType, Image, ImageResizeMode},
+        input::{Gamepad, GamepadAxis, GamepadButton, KeyboardKey, MouseButton},
         math::{Vector2, Vector3, Vector4},
         rand::Random,
         shader,
@@ -55,67 +59,6 @@ pub trait Bounded {
     }
 }
 
-#[derive(Debug)]
-pub struct Mouse<'frame>(PhantomData<&'frame ()>);
-
-impl Mouse<'_> {
-    pub fn position(&self) -> Vector2 {
-        unsafe { sys::GetMousePosition() }.into()
-    }
-
-    pub fn delta(&self) -> Vector2 {
-        unsafe { sys::GetMouseDelta() }.into()
-    }
-
-    pub fn wheel_move(&self) -> f32 {
-        unsafe { sys::GetMouseWheelMove() }
-    }
-
-    pub fn wheel_move_v(&self) -> Vector2 {
-        unsafe { sys::GetMouseWheelMoveV() }.into()
-    }
-
-    pub fn show_cursor(&mut self) {
-        unsafe { sys::ShowCursor() }
-    }
-
-    pub fn hide_cursor(&mut self) {
-        unsafe { sys::HideCursor() }
-    }
-
-    pub fn is_cursor_hidden(&self) -> bool {
-        unsafe { sys::IsCursorHidden() }
-    }
-
-    pub fn enable_cursor(&mut self) {
-        unsafe { sys::EnableCursor() }
-    }
-
-    pub fn disable_cursor(&mut self) {
-        unsafe { sys::DisableCursor() }
-    }
-
-    pub fn is_cursor_on_screen(&self) -> bool {
-        unsafe { sys::IsCursorOnScreen() }
-    }
-
-    pub fn is_button_pressed(&self, button: MouseButton) -> bool {
-        unsafe { sys::IsMouseButtonPressed(button as _) }
-    }
-
-    pub fn is_button_down(&self, button: MouseButton) -> bool {
-        unsafe { sys::IsMouseButtonDown(button as _) }
-    }
-
-    pub fn is_button_released(&self, button: MouseButton) -> bool {
-        unsafe { sys::IsMouseButtonReleased(button as _) }
-    }
-
-    pub fn is_button_up(&self, button: MouseButton) -> bool {
-        unsafe { sys::IsMouseButtonUp(button as _) }
-    }
-}
-
 #[derive(Deref, DerefMut)]
 pub struct Canvas<'window> {
     frame: Frame<'window>,
@@ -126,6 +69,13 @@ pub struct Frame<'window> {
 }
 
 impl<'w> Frame<'w> {
+    /// # SAFETY
+    ///
+    /// This function should only be called if `WindowShouldClose` has been called already.
+    pub(crate) unsafe fn new(arg: &'w mut Window) -> Self {
+        Self { window: arg }
+    }
+
     /// # SAFETY
     ///
     /// This is a placeholder value.  If it is used, things will break.
@@ -145,17 +95,16 @@ impl<'w> Frame<'w> {
         self.window
     }
 
-    pub fn mouse<'f>(&'f self) -> &'f Mouse<'f> {
-        &Mouse(PhantomData)
+    pub fn mouse(&self) -> Mouse {
+        Mouse
     }
 
-    pub fn mouse_mut<'f>(&'f mut self) -> &'f mut Mouse<'f> {
-        // SAFETY: This is wildly unsafe, but since Mouse is zero-sized and we never use the value
-        // of the reference itself, it's fine
-        #[allow(mutable_transmutes)]
-        unsafe {
-            std::mem::transmute(&Mouse(PhantomData))
-        }
+    pub fn keyboard(&self) -> Keyboard {
+        Keyboard
+    }
+
+    pub fn gamepad(&self, gamepad: u32) -> Option<Gamepad> {
+        Gamepad::new(gamepad)
     }
 
     pub fn get_time(&self) -> f32 {
@@ -167,31 +116,6 @@ impl<'w> Frame<'w> {
         // Because we increment at the start, we need to subtract one for an accurate count
         self.window().frame_count - 1
     }
-
-    pub fn is_key_pressed(&self, key: KeyboardKey) -> bool {
-        unsafe { sys::IsKeyPressed(key as _) }
-    }
-
-    pub fn is_key_pressed_repeat(&self, key: KeyboardKey) -> bool {
-        unsafe { sys::IsKeyPressedRepeat(key as _) }
-    }
-
-    pub fn is_key_down(&self, key: KeyboardKey) -> bool {
-        unsafe { sys::IsKeyDown(key as _) }
-    }
-
-    pub fn is_key_released(&self, key: KeyboardKey) -> bool {
-        unsafe { sys::IsKeyReleased(key as _) }
-    }
-
-    pub fn is_key_up(&self, key: KeyboardKey) -> bool {
-        unsafe { sys::IsKeyUp(key as _) }
-    }
-
-    // TODO
-    // pub fn get_key_pressed(&self, key: KeyboardKey) -> KeyboardKey {
-    //     unsafe { sys::GetKeyPressed() }
-    // }
 
     pub fn begin_drawing(self) -> Canvas<'w> {
         Canvas::assert_can_draw();
