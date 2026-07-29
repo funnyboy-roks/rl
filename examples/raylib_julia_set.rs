@@ -139,7 +139,7 @@ fn main() {
     //--------------------------------------------------------------------------------------
 
     // Main game loop
-    while let Some(mut frame) = window.next_frame() {
+    while let Some(frame) = window.next_frame() {
         if frame.size() != target.size() {
             drop(target);
             target = RenderTexture2D::new(frame.width(), frame.height());
@@ -235,54 +235,56 @@ fn main() {
         //----------------------------------------------------------------------------------
         // Using a render texture to draw Julia set
 
-        frame.clear_background(Color::BLACK); // Clear screen background
+        let mut canvas = frame.begin_drawing();
+
+        canvas.clear_background(Color::BLACK); // Clear screen background
 
         // Draw the saved texture and rendered julia set with shader
         // NOTE: We do not invert texture on Y, already considered inside shader
         shader.with(|| {
             // WARNING: If FLAG_WINDOW_HIGHDPI is enabled, HighDPI monitor scaling should be considered
             // when rendering the RenderTexture2D to fit in the HighDPI scaled Window
-            frame.draw_texture(&target.texture(), Vector2::ZERO, 0., 1., Color::WHITE);
+            canvas.draw_texture(&target.texture(), Vector2::ZERO, 0., 1., Color::WHITE);
         });
 
         if show_controls {
-            frame.draw_text(
+            canvas.draw_text(
                 "Press Mouse buttons right/left to zoom in/out and move",
                 (10., 15.),
                 10,
                 Color::RAYWHITE,
             );
-            frame.draw_text(
+            canvas.draw_text(
                 "Press KEY_F1 to toggle these controls",
                 (10., 30.),
                 10,
                 Color::RAYWHITE,
             );
-            frame.draw_text(
+            canvas.draw_text(
                 "Press KEYS [1 - 6] to change point of interest",
                 (10., 45.),
                 10,
                 Color::RAYWHITE,
             );
-            frame.draw_text(
+            canvas.draw_text(
                 "Press KEY_LEFT | KEY_RIGHT to change speed",
                 (10., 60.),
                 10,
                 Color::RAYWHITE,
             );
-            frame.draw_text(
+            canvas.draw_text(
                 "Press KEY_SPACE to stop movement animation",
                 (10., 75.),
                 10,
                 Color::RAYWHITE,
             );
-            frame.draw_text(
+            canvas.draw_text(
                 "Press KEY_R to recenter the camera",
                 (10., 90.),
                 10,
                 Color::RAYWHITE,
             );
-            frame.draw_fps(0, 0);
+            canvas.draw_fps(0, 0);
         }
         // EndDrawing();
     }

@@ -13,9 +13,10 @@ fn main() {
 
     window.set_target_fps(60);
 
-    while let Some(mut frame) = window.next_frame() {
-        frame.clear_background(Color::RAYWHITE);
-        frame.draw_text(
+    while let Some(frame) = window.next_frame() {
+        let mut canvas = frame.begin_drawing();
+        canvas.clear_background(Color::RAYWHITE);
+        canvas.draw_text(
             "Congrats! You created your first window!",
             Vector2::new(190., 200.),
             20,

@@ -44,40 +44,42 @@ fn main() {
             frame_circle.x = 0.;
         }
 
-        frame.clear_background(Color::RAYWHITE);
+        let mut canvas = frame.begin_drawing();
 
-        frame.draw_circle(delta_circle, circle_radius, Color::RED);
-        frame.draw_circle(frame_circle, circle_radius, Color::BLUE);
+        canvas.clear_background(Color::RAYWHITE);
+
+        canvas.draw_circle(delta_circle, circle_radius, Color::RED);
+        canvas.draw_circle(frame_circle, circle_radius, Color::BLUE);
 
         let fps_text = if current_fps == 0 {
-            format!("FPS: unlimited ({})", frame.window().get_fps())
+            format!("FPS: unlimited ({})", canvas.window().get_fps())
         } else {
             format!(
                 "FPS: {} (target: {})",
-                frame.window().get_fps(),
+                canvas.window().get_fps(),
                 current_fps
             )
         };
-        frame.draw_text(fps_text, Vector2::new(10., 10.), 20, Color::DARKGRAY);
-        frame.draw_text(
-            format!("Frame time: {:02} ms", frame.get_time()),
+        canvas.draw_text(fps_text, Vector2::new(10., 10.), 20, Color::DARKGRAY);
+        canvas.draw_text(
+            format!("Frame time: {:02} ms", canvas.get_time()),
             Vector2::new(10., 30.),
             20,
             Color::DARKGRAY,
         );
-        frame.draw_text(
+        canvas.draw_text(
             "Use the scroll wheel to change the fps limit, r to reset",
             Vector2::new(10., 50.),
             20,
             Color::DARKGRAY,
         );
 
-        frame.draw_text(
+        canvas.draw_text(
             "FUNC: x += frame.get_time() * speed",
             Vector2::new(10., 90.),
             20,
             Color::RED,
         );
-        frame.draw_text("FUNC: x += speed", Vector2::new(10., 240.), 20, Color::BLUE);
+        canvas.draw_text("FUNC: x += speed", Vector2::new(10., 240.), 20, Color::BLUE);
     }
 }

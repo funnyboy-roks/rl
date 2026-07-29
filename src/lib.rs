@@ -1,6 +1,7 @@
 use std::sync::atomic::Ordering;
 use std::{ffi::CString, marker::PhantomData};
 
+use derive_more::{Deref, DerefMut};
 use raylib_sys::{self as sys};
 
 pub use raylib_sys::{KeyboardKey, MouseButton, Rectangle};
@@ -113,31 +114,16 @@ impl Mouse<'_> {
     }
 }
 
-pub struct Frame<'window> {
-    window: &'window mut Window,
-    resources: Vec<Texture2D>,
+#[derive(Deref, DerefMut)]
+pub struct Canvas<'window> {
+    frame: Frame<'window>,
 }
 
-impl Frame<'_> {
-    #[inline]
-    pub fn can_draw(&self) -> bool {
-        // window is initialised and we are not drawing to a texture
-        WINDOW_INITIALISED.load(Ordering::Acquire) && !DRAWING_TO_TEXTURE.load(Ordering::Acquire)
-    }
+pub struct Frame<'window> {
+    window: &'window mut Window,
+}
 
-    #[inline]
-    fn assert_can_draw(&self) {
-        assert!(
-            WINDOW_INITIALISED.load(Ordering::Acquire),
-            "Attempting to draw without a window initialised"
-        );
-        assert!(
-            !DRAWING_TO_TEXTURE.load(Ordering::Acquire),
-            "Cannot draw to frame while drawing to texture"
-        );
-        assert!(self.can_draw());
-    }
-
+impl<'w> Frame<'w> {
     pub fn window(&self) -> &Window {
         self.window
     }
@@ -169,11 +155,6 @@ impl Frame<'_> {
         self.window().frame_count - 1
     }
 
-    pub fn draw_fps(&mut self, x: i32, y: i32) {
-        self.assert_can_draw();
-        unsafe { sys::DrawFPS(x, y) }
-    }
-
     pub fn is_key_pressed(&self, key: KeyboardKey) -> bool {
         unsafe { sys::IsKeyPressed(key as _) }
     }
@@ -198,12 +179,11 @@ impl Frame<'_> {
     // pub fn get_key_pressed(&self, key: KeyboardKey) -> KeyboardKey {
     //     unsafe { sys::GetKeyPressed() }
     // }
-}
 
-impl Drop for Frame<'_> {
-    fn drop(&mut self) {
-        self.window.prev_mouse = Some(self.mouse().position());
-        unsafe { sys::EndDrawing() };
+    pub fn begin_drawing(self) -> Canvas<'w> {
+        Canvas::assert_can_draw();
+        unsafe { sys::BeginDrawing() };
+        Canvas { frame: self }
     }
 }
 
@@ -217,14 +197,78 @@ impl Bounded for Frame<'_> {
     }
 }
 
-impl DrawTarget for Frame<'_> {
+impl<'w> Canvas<'w> {
+    /// End drawing the current frame
+    ///
+    /// This function should only be needed if you wish to use the frame again after drawing,
+    /// otherwise, drop will make the appropriate call
+    pub fn end_drawing(self) -> Frame<'w> {
+        let mut this = self;
+        std::mem::replace(
+            &mut this.frame,
+            // SAFETY: This is obviosly unsafe, but since we immediately drop `this` and the
+            // deconstructor does not use `Frame`, it is okay
+            #[expect(invalid_value, clippy::uninit_assumed_init)]
+            unsafe {
+                std::mem::MaybeUninit::uninit().assume_init()
+            },
+        )
+    }
+
+    #[inline]
+    fn can_draw() -> bool {
+        // window is initialised and we are not drawing to a texture
+        WINDOW_INITIALISED.load(Ordering::Acquire) && !DRAWING_TO_TEXTURE.load(Ordering::Acquire)
+    }
+
+    #[inline]
+    fn assert_can_draw() {
+        assert!(
+            WINDOW_INITIALISED.load(Ordering::Acquire),
+            "Attempting to draw without a window initialised"
+        );
+        assert!(
+            !DRAWING_TO_TEXTURE.load(Ordering::Acquire),
+            "Cannot draw to frame while drawing to texture"
+        );
+        assert!(Self::can_draw());
+    }
+
+    pub fn draw_fps(&mut self, x: i32, y: i32) {
+        Self::assert_can_draw();
+        unsafe { sys::DrawFPS(x, y) }
+    }
+}
+
+impl Drop for Canvas<'_> {
+    fn drop(&mut self) {
+        // XXX: This function should not access `self.frame` as its value may not be safe to use
+        // (see `end_drawing`)
+
+        // SAFETY: We started drawing when this struct was created and we are stopping now that it's
+        // being destructed
+        unsafe { sys::EndDrawing() };
+    }
+}
+
+impl Bounded for Canvas<'_> {
+    fn width(&self) -> u32 {
+        self.frame.width()
+    }
+
+    fn height(&self) -> u32 {
+        self.frame.height()
+    }
+}
+
+impl DrawTarget for Canvas<'_> {
     fn clear_background(&mut self, color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe { sys::ClearBackground(color.into()) }
     }
 
     fn draw_pixel(&mut self, positon: impl Into<Vector2>, color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe { sys::DrawPixelV(positon.into().into(), color.into()) }
     }
 
@@ -235,28 +279,28 @@ impl DrawTarget for Frame<'_> {
         thick: f32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe { sys::DrawLineEx(from.into().into(), to.into().into(), thick, color.into()) };
     }
 
     fn draw_circle(&mut self, center: impl Into<Vector2>, radius: f32, color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         let center = center.into();
         unsafe { sys::DrawCircle(center.x as _, center.y as _, radius, color.into()) };
     }
 
     fn draw_circle_lines(&mut self, center: impl Into<Vector2>, radius: f32, color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe { sys::DrawCircleLinesV(center.into().into(), radius, color.into()) }
     }
 
     fn draw_rectangle(&mut self, rect: Rectangle, color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe { sys::DrawRectangleRec(rect, color.into()) };
     }
 
     fn draw_rectangle_lines(&mut self, rect: Rectangle, line_thick: f32, color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe { sys::DrawRectangleLinesEx(rect, line_thick, color.into()) };
     }
 
@@ -267,7 +311,7 @@ impl DrawTarget for Frame<'_> {
         p3: impl Into<Vector2>,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawTriangle(
                 p1.into().into(),
@@ -285,7 +329,7 @@ impl DrawTarget for Frame<'_> {
         p3: impl Into<Vector2>,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawTriangleLines(
                 p1.into().into(),
@@ -297,13 +341,13 @@ impl DrawTarget for Frame<'_> {
     }
 
     fn draw_triangle_fan(&mut self, points: &[Vector2], color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         // cast here is fine because both Vector2s have the same layout
         unsafe { sys::DrawTriangleFan(points.as_ptr().cast(), points.len() as _, color.into()) };
     }
 
     fn draw_triangle_strip(&mut self, points: &[Vector2], color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         // cast here is fine because both Vector2s have the same layout
         unsafe { sys::DrawTriangleStrip(points.as_ptr().cast(), points.len() as _, color.into()) };
     }
@@ -315,7 +359,7 @@ impl DrawTarget for Frame<'_> {
         font_size: u32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         let text = CString::new(text.as_ref()).expect("str has no null");
         let pos = pos.into();
         unsafe {
@@ -330,9 +374,9 @@ impl DrawTarget for Frame<'_> {
     }
 }
 
-impl DrawTargetFull for Frame<'_> {
+impl DrawTargetFull for Canvas<'_> {
     fn draw_line_strip(&mut self, points: &[Vector2], color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         // cast here is fine because both Vector2s have the same layout
         unsafe { sys::DrawLineStrip(points.as_ptr().cast(), points.len() as _, color.into()) };
     }
@@ -344,7 +388,7 @@ impl DrawTargetFull for Frame<'_> {
         thick: f32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe { sys::DrawLineBezier(start.into().into(), end.into().into(), thick, color.into()) };
     }
 
@@ -356,7 +400,7 @@ impl DrawTargetFull for Frame<'_> {
         space_size: u32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawLineDashed(
                 start.into().into(),
@@ -375,7 +419,7 @@ impl DrawTargetFull for Frame<'_> {
         inner: Color,
         outer: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawCircleGradient(center.into().into(), radius, inner.into(), outer.into())
         };
@@ -390,7 +434,7 @@ impl DrawTargetFull for Frame<'_> {
         segments: u32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawCircleSector(
                 center.into().into(),
@@ -412,7 +456,7 @@ impl DrawTargetFull for Frame<'_> {
         segments: u32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawCircleSectorLines(
                 center.into().into(),
@@ -431,7 +475,7 @@ impl DrawTargetFull for Frame<'_> {
         radius: impl Into<Vector2>,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         let radius = radius.into();
         unsafe { sys::DrawEllipseV(center.into().into(), radius.x, radius.y, color.into()) };
     }
@@ -442,7 +486,7 @@ impl DrawTargetFull for Frame<'_> {
         radius: impl Into<Vector2>,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         let radius = radius.into();
         unsafe { sys::DrawEllipseLinesV(center.into().into(), radius.x, radius.y, color.into()) };
     }
@@ -457,7 +501,7 @@ impl DrawTargetFull for Frame<'_> {
         segments: u32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawRing(
                 center.into().into(),
@@ -481,7 +525,7 @@ impl DrawTargetFull for Frame<'_> {
         segments: u32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawRingLines(
                 center.into().into(),
@@ -503,7 +547,7 @@ impl DrawTargetFull for Frame<'_> {
         bottom_left: Color,
         bottom_right: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawRectangleGradientEx(
                 rect,
@@ -522,7 +566,7 @@ impl DrawTargetFull for Frame<'_> {
         rotation: f32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe { sys::DrawRectanglePro(rect, origin.into().into(), rotation, color.into()) };
     }
 
@@ -533,7 +577,7 @@ impl DrawTargetFull for Frame<'_> {
         segments: u32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe { sys::DrawRectangleRounded(rect, roundness, segments as _, color.into()) };
     }
 
@@ -545,7 +589,7 @@ impl DrawTargetFull for Frame<'_> {
         thick: f32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawRectangleRoundedLinesEx(rect, roundness, segments as _, thick, color.into())
         };
@@ -559,7 +603,7 @@ impl DrawTargetFull for Frame<'_> {
         rotation: f32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawPoly(
                 center.into().into(),
@@ -580,7 +624,7 @@ impl DrawTargetFull for Frame<'_> {
         thick: f32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawPolyLinesEx(
                 center.into().into(),
@@ -594,7 +638,7 @@ impl DrawTargetFull for Frame<'_> {
     }
 
     fn draw_spline_linear(&mut self, points: &[Vector2], thick: f32, color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawSplineLinear(
                 points.as_ptr().cast(),
@@ -606,7 +650,7 @@ impl DrawTargetFull for Frame<'_> {
     }
 
     fn draw_spline_basis(&mut self, points: &[Vector2], thick: f32, color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawSplineBasis(
                 points.as_ptr().cast(),
@@ -618,7 +662,7 @@ impl DrawTargetFull for Frame<'_> {
     }
 
     fn draw_spline_catmull_rom(&mut self, points: &[Vector2], thick: f32, color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawSplineCatmullRom(
                 points.as_ptr().cast(),
@@ -630,7 +674,7 @@ impl DrawTargetFull for Frame<'_> {
     }
 
     fn draw_spline_bezier_quadratic(&mut self, points: &[Vector2], thick: f32, color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawSplineBezierQuadratic(
                 points.as_ptr().cast(),
@@ -642,7 +686,7 @@ impl DrawTargetFull for Frame<'_> {
     }
 
     fn draw_spline_bezier_cubic(&mut self, points: &[Vector2], thick: f32, color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawSplineBezierCubic(
                 points.as_ptr().cast(),
@@ -660,7 +704,7 @@ impl DrawTargetFull for Frame<'_> {
         thick: f32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawSplineSegmentLinear(p1.into().into(), p2.into().into(), thick, color.into())
         };
@@ -675,7 +719,7 @@ impl DrawTargetFull for Frame<'_> {
         thick: f32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawSplineSegmentBasis(
                 p1.into().into(),
@@ -697,7 +741,7 @@ impl DrawTargetFull for Frame<'_> {
         thick: f32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawSplineSegmentCatmullRom(
                 p1.into().into(),
@@ -718,7 +762,7 @@ impl DrawTargetFull for Frame<'_> {
         thick: f32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawSplineSegmentBezierQuadratic(
                 p1.into().into(),
@@ -739,7 +783,7 @@ impl DrawTargetFull for Frame<'_> {
         thick: f32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawSplineSegmentBezierCubic(
                 p1.into().into(),
@@ -760,8 +804,8 @@ impl DrawTargetFull for Frame<'_> {
         scale: f32,
         tint: Color,
     ) {
-        self.assert_can_draw();
-        self.resources.push(texture.clone());
+        Self::assert_can_draw();
+        self.frame.window.resources.push(Box::new(texture.clone()));
         unsafe {
             sys::DrawTextureEx(
                 *texture.inner(),
@@ -782,8 +826,8 @@ impl DrawTargetFull for Frame<'_> {
         rotation: f32,
         tint: Color,
     ) {
-        self.assert_can_draw();
-        self.resources.push(texture.clone());
+        Self::assert_can_draw();
+        self.frame.window.resources.push(Box::new(texture.clone()));
         unsafe {
             sys::DrawTexturePro(
                 *texture.inner(),

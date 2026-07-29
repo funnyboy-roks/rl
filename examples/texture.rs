@@ -18,12 +18,13 @@ fn main() {
     });
 
     let mut rotation = 0.;
-    while let Some(mut frame) = window.next_frame() {
-        frame.clear_background(Color::GRAY);
-        let center = Vector2::new(frame.width() as f32 / 2., frame.height() as f32 / 2.);
+    while let Some(frame) = window.next_frame() {
+        let mut canvas = frame.begin_drawing();
+        canvas.clear_background(Color::GRAY);
+        let center = canvas.size() / 2.;
         let texture_size = texture.size();
 
-        frame
+        canvas
             .draw_texture_builder()
             .texture(&texture.texture())
             .position(center, 4.0)

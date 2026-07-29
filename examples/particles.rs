@@ -13,7 +13,7 @@ struct Particle {
 }
 
 impl Particle {
-    fn draw(&mut self, frame: &mut rl::Frame<'_>) -> bool {
+    fn draw(&mut self, canvas: &mut rl::Canvas<'_>) -> bool {
         if self.age > self.max_age {
             return false;
         }
@@ -25,7 +25,7 @@ impl Particle {
             height: self.size,
         };
 
-        frame
+        canvas
             .draw_rectangle_builder()
             .rectangle(rect)
             .rotation((self.size / 2., self.size / 2.), self.rotation)
@@ -34,20 +34,20 @@ impl Particle {
 
         // if the particle is to the left or right of the screen and heading away from it
         if (self.pos.x < 0. && self.velocity.x < 0.)
-            || (self.pos.x > frame.width() as f32 && self.velocity.x > 0.)
+            || (self.pos.x > canvas.width() as f32 && self.velocity.x > 0.)
         {
             return false;
         }
 
-        self.pos += self.velocity * frame.get_time() * (1.5 - self.age / self.max_age);
+        self.pos += self.velocity * canvas.get_time() * (1.5 - self.age / self.max_age);
 
-        self.velocity += Vector2::new(0., 9.8) * 50. * frame.get_time();
+        self.velocity += Vector2::new(0., 9.8) * 50. * canvas.get_time();
 
-        self.age += frame.get_time();
+        self.age += canvas.get_time();
         self.rotation += 0.1;
 
-        if self.pos.y > frame.height() as f32 {
-            self.pos.y = frame.height() as _;
+        if self.pos.y > canvas.height() as f32 {
+            self.pos.y = canvas.height() as _;
             self.velocity = Vector2::ZERO;
             self.rotation = 0.;
         }
@@ -81,11 +81,7 @@ fn main() {
     let mut particles: VecDeque<Particle> = VecDeque::with_capacity(1000);
 
     let mut prev_mouse = Vector2::ZERO;
-    while let Some(mut frame) = window.next_frame() {
-        frame.clear_background(Color::BLACK);
-
-        particles.retain_mut(|p| p.draw(&mut frame));
-
+    while let Some(frame) = window.next_frame() {
         let mouse = frame.mouse().position();
 
         if frame
@@ -121,14 +117,19 @@ fn main() {
             }
         }
 
-        frame.draw_fps(10, 10);
-        frame.draw_text(
+        let mut canvas = frame.begin_drawing();
+        canvas.clear_background(Color::BLACK);
+
+        particles.retain_mut(|p| p.draw(&mut canvas));
+
+        canvas.draw_fps(10, 10);
+        canvas.draw_text(
             format!("Particles: {}", particles.len()),
             (10., 10. + 20. + 5.),
             20,
             Color::RAYWHITE,
         );
 
-        prev_mouse = frame.mouse().position();
+        prev_mouse = canvas.mouse().position();
     }
 }

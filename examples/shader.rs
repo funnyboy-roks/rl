@@ -27,11 +27,12 @@ fn main() {
     }
     .expect("Invalid shader");
 
-    while let Some(mut frame) = win.next_frame() {
-        frame.clear_background(Color::from_int(0x181818ff));
+    while let Some(frame) = win.next_frame() {
+        let mut canvas = frame.begin_drawing();
+        canvas.clear_background(Color::from_int(0x181818ff));
         shader.with(|| {
             // frame.draw_text("hello world", (400., 300.), 32, Color::RED);
-            frame.draw_rectangle(frame.bounds(), Color::WHITE);
+            canvas.draw_rectangle(canvas.bounds(), Color::WHITE);
         });
     }
 }

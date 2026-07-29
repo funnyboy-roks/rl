@@ -27,15 +27,16 @@ fn main() {
     .map(|i| Texture2D::from_image(&i));
 
     let mut current_texture = 0;
-    while let Some(mut frame) = window.next_frame() {
-        frame.clear_background(Color::WHITE);
-
+    while let Some(frame) = window.next_frame() {
         if frame.is_key_pressed(KeyboardKey::KEY_SPACE) {
             current_texture += 1;
             current_texture %= textures.len();
         }
 
-        frame.draw_texture(
+        let mut canvas = frame.begin_drawing();
+        canvas.clear_background(Color::WHITE);
+
+        canvas.draw_texture(
             &textures[current_texture],
             Vector2::ZERO,
             0.,
@@ -43,16 +44,16 @@ fn main() {
             Color::WHITE,
         );
 
-        frame.draw_rectangle(
+        canvas.draw_rectangle(
             Rectangle::new(30., 400., 325., 30.),
             Color::SKYBLUE.alpha(0.5),
         );
-        frame.draw_rectangle_lines(
+        canvas.draw_rectangle_lines(
             Rectangle::new(30., 400., 325., 30.),
             1.,
             Color::WHITE.alpha(0.5),
         );
-        frame.draw_text(
+        canvas.draw_text(
             "SPACE to CYCLE PROCEDURAL TEXTURES",
             Vector2::new(40., 410.),
             10,
@@ -72,6 +73,6 @@ fn main() {
             _ => unreachable!(),
         };
 
-        frame.draw_text(text, Vector2::new(10., 10.), 20, col);
+        canvas.draw_text(text, Vector2::new(10., 10.), 20, col);
     }
 }

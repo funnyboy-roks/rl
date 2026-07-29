@@ -51,7 +51,7 @@ fn main() {
 
     let mut dead = false;
 
-    while let Some(mut frame) = window.next_frame() {
+    while let Some(frame) = window.next_frame() {
         let width = frame.width() / cell_size;
         let height = frame.height() / cell_size;
         let pad_x = frame.width() % cell_size;
@@ -105,11 +105,13 @@ fn main() {
             }
         }
 
-        frame.clear_background(Color::new(0x25, 0x25, 0x25, 0x1));
+        let mut canvas = frame.begin_drawing();
+
+        canvas.clear_background(Color::new(0x25, 0x25, 0x25, 0x1));
         for y in 0..height {
             for x in 0..width {
                 if fruit.contains(&(x, y)) {
-                    frame.draw_rectangle(
+                    canvas.draw_rectangle(
                         Rectangle {
                             x: (pad_x / 2 + x * cell_size) as f32 + 15.,
                             y: (pad_y / 2 + y * cell_size) as f32 + 15.,
@@ -122,7 +124,7 @@ fn main() {
 
                 for (i, &cell) in snek.iter().enumerate() {
                     if (x, y) == cell {
-                        frame.draw_rectangle(
+                        canvas.draw_rectangle(
                             Rectangle {
                                 x: (pad_x / 2 + x * cell_size) as f32,
                                 y: (pad_y / 2 + y * cell_size) as f32,
@@ -140,7 +142,7 @@ fn main() {
                     }
                 }
 
-                frame.draw_rectangle_lines(
+                canvas.draw_rectangle_lines(
                     Rectangle {
                         x: (pad_x / 2 + x * cell_size) as f32,
                         y: (pad_y / 2 + y * cell_size) as f32,
@@ -154,16 +156,16 @@ fn main() {
         }
 
         if dead {
-            frame.draw_rectangle(frame.bounds(), Color::BLACK.alpha(0.25));
+            canvas.draw_rectangle(canvas.bounds(), Color::BLACK.alpha(0.25));
 
             let text = "You Died";
             let sz = 125;
             let width = rl::text::measure(text, sz);
-            frame.draw_text(
+            canvas.draw_text(
                 text,
                 Vector2::new(
-                    frame.width() as f32 / 2. - width as f32 / 2.,
-                    frame.height() as f32 / 2. - sz as f32 - 40.,
+                    canvas.width() as f32 / 2. - width as f32 / 2.,
+                    canvas.height() as f32 / 2. - sz as f32 - 40.,
                 ),
                 sz,
                 Color::RAYWHITE,
@@ -172,11 +174,11 @@ fn main() {
             let score = format!("Score: {}", snek.len());
             let sz = 64;
             let width = rl::text::measure(&score, sz);
-            frame.draw_text(
+            canvas.draw_text(
                 score,
                 Vector2::new(
-                    frame.width() as f32 / 2. - width as f32 / 2.,
-                    frame.height() as f32 / 2. - sz as f32 / 2.,
+                    canvas.width() as f32 / 2. - width as f32 / 2.,
+                    canvas.height() as f32 / 2. - sz as f32 / 2.,
                 ),
                 sz,
                 Color::RAYWHITE,
@@ -185,11 +187,11 @@ fn main() {
             let text = "Press [SPACE] to play again";
             let sz = 32;
             let width = rl::text::measure(text, sz);
-            frame.draw_text(
+            canvas.draw_text(
                 text,
                 Vector2::new(
-                    frame.width() as f32 / 2. - width as f32 / 2.,
-                    frame.height() as f32 / 2. + 40.,
+                    canvas.width() as f32 / 2. - width as f32 / 2.,
+                    canvas.height() as f32 / 2. + 40.,
                 ),
                 sz,
                 Color::RAYWHITE,

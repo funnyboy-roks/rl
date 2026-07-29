@@ -1,4 +1,5 @@
 use std::{
+    any::Any,
     ffi::{CStr, CString},
     sync::atomic::Ordering,
 };
@@ -56,12 +57,12 @@ impl<const FLAGS: bool, const FPS: bool> FilledWindowConfigBuilder<'_, FLAGS, FP
     }
 }
 
-#[derive(Debug)]
 pub struct Window {
-    pub(crate) prev_mouse: Option<Vector2>,
     // 1 + Number of frames that have been run since this window was started.  Value is intialised
     // on call to begin_drawing
     pub(crate) frame_count: u64,
+    /// Resources for the current frame.  This is be cleared before a new frame
+    pub(crate) resources: Vec<Box<dyn Any>>,
 }
 
 impl Drop for Window {
@@ -136,8 +137,8 @@ impl Window {
         unsafe { sys::InitWindow(width as _, height as _, title.as_ptr()) };
 
         Window {
-            prev_mouse: None,
             frame_count: 0,
+            resources: Default::default(),
         }
     }
 
@@ -159,21 +160,14 @@ impl Window {
         unsafe { sys::SetTargetFPS(target as _) }
     }
 
-    pub fn begin_drawing<'a>(&'a mut self) -> Frame<'a> {
-        unsafe { sys::BeginDrawing() };
-        self.frame_count += 1;
-        Frame {
-            window: self,
-            resources: Vec::new(),
-        }
-    }
-
-    /// Helper method that calls WindowShouldClose and BeginDrawing
+    /// Get the next frame
     pub fn next_frame<'w>(&'w mut self) -> Option<Frame<'w>> {
+        self.resources.clear();
         if self.should_close() {
             None
         } else {
-            Some(self.begin_drawing())
+            self.frame_count += 1;
+            Some(Frame { window: self })
         }
     }
 }

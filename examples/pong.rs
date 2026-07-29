@@ -34,37 +34,7 @@ fn main() {
 
     let mut death_flash = 0.;
 
-    while let Some(mut frame) = window.next_frame() {
-        frame.clear_background(Color::new(0x18, 0x18, 0x18, 0xff));
-
-        if death_flash > f32::EPSILON {
-            frame.draw_rectangle(frame.bounds(), Color::MAROON.alpha(death_flash / 0.5));
-        }
-
-        frame.draw_text(
-            format!("{}", p1_score),
-            Vector2::new(50. + 10. + 10., 10.),
-            64,
-            Color::RED,
-        );
-
-        let p2_score_text = format!("{}", p2_score);
-        let p2_score_width = rl::text::measure(&p2_score_text, 64);
-        frame.draw_text(
-            p2_score_text,
-            Vector2::new(
-                frame.width() as f32 - 50. - 10. - 10. - p2_score_width as f32,
-                10.,
-            ),
-            64,
-            Color::GREEN,
-        );
-
-        frame.draw_circle(ball_pos, 10., Color::RAYWHITE);
-
-        frame.draw_rectangle(player1, Color::RED);
-        frame.draw_rectangle(player2, Color::GREEN);
-
+    while let Some(frame) = window.next_frame() {
         // update ball
         if ball_pos.y + ball_radius + ball_vel.y * frame.get_time() > frame.height() as _
             || ball_pos.y - ball_radius + ball_vel.y * frame.get_time() < 0.
@@ -130,5 +100,37 @@ fn main() {
         } else {
             death_flash = 0.;
         }
+
+        let mut canvas = frame.begin_drawing();
+
+        canvas.clear_background(Color::new(0x18, 0x18, 0x18, 0xff));
+
+        if death_flash > f32::EPSILON {
+            canvas.draw_rectangle(canvas.bounds(), Color::MAROON.alpha(death_flash / 0.5));
+        }
+
+        canvas.draw_text(
+            format!("{}", p1_score),
+            Vector2::new(50. + 10. + 10., 10.),
+            64,
+            Color::RED,
+        );
+
+        let p2_score_text = format!("{}", p2_score);
+        let p2_score_width = rl::text::measure(&p2_score_text, 64);
+        canvas.draw_text(
+            p2_score_text,
+            Vector2::new(
+                canvas.width() as f32 - 50. - 10. - 10. - p2_score_width as f32,
+                10.,
+            ),
+            64,
+            Color::GREEN,
+        );
+
+        canvas.draw_circle(ball_pos, 10., Color::RAYWHITE);
+
+        canvas.draw_rectangle(player1, Color::RED);
+        canvas.draw_rectangle(player2, Color::GREEN);
     }
 }
