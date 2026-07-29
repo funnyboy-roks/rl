@@ -509,7 +509,9 @@ impl Quaternion {
     }
 
     /// Calculate quaternion cubic spline interpolation using Cubic Hermite Spline algorithm
-    /// as described in the GLTF 2.0 specification: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#interpolation-cubic
+    ///
+    /// as described in the GLTF 2.0 specification:
+    /// <https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#interpolation-cubic>
     #[must_use]
     pub fn cubic_hermite_spline(
         self,

@@ -12,29 +12,46 @@ use crate::{
 use raylib_sys as sys;
 
 #[derive(bauer::Builder, Clone, Copy, Debug)]
+#[builder(
+    const,
+    build_fn {
+        map = |c| -> Camera2D { assert!(c.zoom > 0.); c }
+    },
+)]
 pub struct Camera2D {
     /// Camera offset (screen space offset from window origin)
-    #[builder(default)]
+    ///
+    /// default = `Vector2::ZERO`
+    #[builder(default = "Vector2::ZERO")]
     pub offset: Vector2,
     /// Camera target (world space target point that is mapped to screen space offset)
-    #[builder(default)]
+    ///
+    /// default = `Vector2::ZERO`
+    #[builder(default = "Vector2::ZERO")]
     pub target: Vector2,
     /// Camera rotation in degrees (pivots around target)
-    #[builder(default)]
+    ///
+    /// default = `0.0`
+    #[builder(default = "0.")]
     pub rotation: f32,
-    /// Camera zoom (scaling around target), must not be set to 0, set to 1. for no scale
+    /// Camera zoom (scaling around target)
+    ///
+    /// **Must not be set to 0**
+    ///
+    /// default = `1.0`
     #[builder(default = "1.")]
     pub zoom: f32,
 }
 
 impl Default for Camera2D {
+    /// Generate a default camera with:
+    ///
+    /// - `offset` = [`Vector2::ZERO`]
+    /// - `target` = [`Vector2::ZERO`]
+    /// - `rotation` = `0.0`
+    /// - `zoom` = `1.0`
     fn default() -> Self {
-        Self {
-            offset: Default::default(),
-            target: Default::default(),
-            rotation: Default::default(),
-            zoom: 1.,
-        }
+        Self::builder().build()
     }
 }
 
