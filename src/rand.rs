@@ -2,7 +2,7 @@ use std::f32::consts::TAU;
 
 use raylib_sys as sys;
 
-use crate::Vector2;
+use crate::{Vector2, math::Angle};
 
 /// Get a random value between min and max (both included)
 pub fn random_value(min: i32, max: i32) -> i32 {
@@ -23,7 +23,14 @@ impl Random for f32 {
 impl Random for Vector2 {
     /// Unit vector pointing in random direction
     fn random() -> Self {
-        Self::new(1., 0.).rotate(f32::random() * TAU)
+        Self::new(1., 0.).rotate(Random::random())
+    }
+}
+
+impl Random for Angle {
+    /// Random angle between 0 and 2pi
+    fn random() -> Self {
+        Self::radians(f32::random() * TAU)
     }
 }
 

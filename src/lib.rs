@@ -32,7 +32,7 @@ pub mod prelude {
         color::Color,
         draw::{DrawTarget, DrawTargetFull},
         image::{FileType, Image, ImageResizeMode},
-        math::Vector2,
+        math::{Vector2, Vector3, Vector4},
         rand::Random,
         shader,
         shader::Shader,

@@ -2,6 +2,8 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 use derive_more::{Add, AddAssign, Debug, Display, From, Neg, Sub, SubAssign};
 
+use crate::math::{Angle, Matrix};
+
 #[derive(
     Debug,
     Clone,
@@ -143,11 +145,11 @@ impl Vector2 {
     /// Coordinate system convention: positive X right, positive Y down positive angles appear
     /// clockwise, and negative angles appear counterclockwise
     #[must_use]
-    pub fn angle(self, other: Self) -> f32 {
+    pub fn angle(self, other: Self) -> Angle {
         let dot = self.x * other.x + self.y * other.y;
         let det = self.x * other.y - self.y * other.x;
 
-        f32::atan2(det, dot)
+        Angle::degrees(f32::atan2(det, dot))
     }
 
     /// Calculate angle defined by a two vectors line
@@ -157,8 +159,8 @@ impl Vector2 {
     /// - Parameters need to be normalized
     /// - Current implementation should be aligned with glm::angle
     #[must_use]
-    pub fn line_angle(self, end: Self) -> f32 {
-        -f32::atan2(end.y - self.y, end.x - self.x)
+    pub fn line_angle(self, end: Self) -> Angle {
+        Angle::degrees(-f32::atan2(end.y - self.y, end.x - self.x))
     }
 
     /// Normalise this vector to length 1
@@ -199,8 +201,8 @@ impl Vector2 {
 
     /// Rotate vector by angle
     #[must_use]
-    pub fn rotate(self, angle: f32) -> Self {
-        let (sin, cos) = angle.sin_cos();
+    pub fn rotate(self, angle: Angle) -> Self {
+        let (sin, cos) = angle.to_radians().sin_cos();
 
         Self::new(self.x * cos - self.y * sin, self.x * sin + self.y * cos)
     }
@@ -280,6 +282,19 @@ impl Vector2 {
         } else {
             Self::ZERO
         }
+    }
+
+    #[must_use]
+    pub const fn transform(self, matrix: Matrix<2, 4>) -> Self {
+        let Self { x, y } = self;
+        let z = 0.;
+
+        let m = matrix;
+
+        Self::new(
+            m.get(0, 0) * x + m.get(0, 1) * y + m.get(0, 2) * z + m.get(0, 3),
+            m.get(1, 0) * x + m.get(1, 1) * y + m.get(1, 2) * z + m.get(1, 3),
+        )
     }
 }
 

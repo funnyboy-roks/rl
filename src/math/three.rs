@@ -2,7 +2,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 use derive_more::{Add, AddAssign, Debug, Display, From, Neg, Sub, SubAssign};
 
-use crate::math::Vector2;
+use crate::math::{Angle, Matrix, Quaternion, Vector2};
 
 #[derive(
     Debug,
@@ -19,7 +19,7 @@ use crate::math::Vector2;
     Display,
     From,
 )]
-#[display("Vector3({}, {})", x, y)]
+#[display("Vector3({}, {}, {})", x, y, z)]
 #[from((f32, f32, f32))]
 #[repr(C)]
 pub struct Vector3 {
@@ -169,11 +169,11 @@ impl Vector3 {
 
     /// Calculate the signed angle from `self` to `other`, relative to the origin (0, 0, 0)
     #[must_use]
-    pub fn angle(self, other: Self) -> f32 {
+    pub fn angle(self, other: Self) -> Angle {
         let len = self.cross(other).length();
         let dot = self.dot(other);
 
-        f32::atan2(len, dot)
+        Angle::radians(f32::atan2(len, dot))
     }
 
     /// Normalise this vector to length 1
@@ -252,16 +252,15 @@ impl Vector3 {
     }
 
     #[must_use]
-    pub fn rotate_by_axis_angle(self, axis: Self, angle: f32) -> Self {
+    pub fn rotate_by_axis_angle(self, axis: Self, angle: Angle) -> Self {
         // Using Euler-Rodrigues Formula
         // Ref.: https://en.wikipedia.org/w/index.php?title=Euler%E2%80%93Rodrigues_formula
 
         let result = self;
 
-        // SelfNormalize(axis);
         let axis = axis.normalize();
 
-        let angle = angle / 2.;
+        let angle = angle.to_radians() / 2.;
         let (sin, cos) = angle.sin_cos();
         let b = axis.x * sin;
         let c = axis.y * sin;
@@ -340,6 +339,7 @@ impl Vector3 {
 
         (self.x - other.x).abs() <= EPSILON * self.x.abs().max(other.x.abs()).max(1.)
             && (self.y - other.y).abs() <= EPSILON * self.y.abs().max(other.y.abs()).max(1.)
+            && (self.z - other.z).abs() <= EPSILON * self.z.abs().max(other.z.abs()).max(1.)
     }
 
     /// Compute the direction of a refracted ray
@@ -401,6 +401,39 @@ impl Vector3 {
         let x = 1. - (z + y);
 
         Self::new(x, y, z)
+    }
+
+    #[must_use]
+    pub const fn transform(self, matrix: Matrix<3, 4>) -> Self {
+        let Self { x, y, z } = self;
+
+        let m = matrix;
+
+        Self::new(
+            m.get(0, 0) * x + m.get(0, 1) * y + m.get(0, 2) * z + m.get(0, 3),
+            m.get(1, 0) * x + m.get(1, 1) * y + m.get(1, 2) * z + m.get(1, 3),
+            m.get(2, 0) * x + m.get(2, 1) * y + m.get(2, 2) * z + m.get(2, 3),
+        )
+    }
+
+    /// Projects a Vector3 from screen space into object space
+    #[must_use]
+    pub fn unproject(self, projection: Matrix<4, 4>, view: Matrix<4, 4>) -> Self {
+        // Calculate unprojected matrix (multiply view matrix by projection matrix) and invert it
+        let mat_view_proj_inv = projection.mul(view).invert();
+
+        // Create quaternion from source point
+        let quat = Quaternion::new(self.x, self.y, self.z, 1.);
+
+        // Multiply quat point by unprojected matrix
+        let qtransformed = quat.transform(mat_view_proj_inv);
+
+        // Normalized world points in vectors
+        Self::new(
+            qtransformed.x() / qtransformed.w(),
+            qtransformed.y() / qtransformed.w(),
+            qtransformed.z() / qtransformed.w(),
+        )
     }
 }
 

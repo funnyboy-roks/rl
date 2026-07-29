@@ -1,13 +1,17 @@
 use std::f32::consts::PI;
 
-use rl::prelude::*;
+use rl::{math::Angle, prelude::*};
 
 fn reset(ball_pos: &mut Vector2, ball_vel: &mut Vector2) {
     *ball_pos = Vector2::new(400., 300.);
     // random vector, biased towards a paddle
     *ball_vel = Vector2::new(400., 0.).rotate(
-        (rl::rand::random_value(-45, 45) as f32).to_radians()
-            + if bool::random() { PI } else { 0. },
+        Angle::degrees(rl::rand::random_value(-45, 45) as f32)
+            + if bool::random() {
+                Angle::radians(PI)
+            } else {
+                Angle::ZERO
+            },
     );
 }
 
