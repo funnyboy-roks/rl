@@ -12,7 +12,7 @@ use std::{
 
 pub use four::{Quaternion, Vector4};
 pub use matrix::Matrix;
-pub use three::Vector3;
+pub use three::{Ray, Vector3};
 pub use two::Vector2;
 
 // NOTE: Not using a generic for the type because that can't be used at const

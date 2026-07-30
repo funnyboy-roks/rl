@@ -1,9 +1,10 @@
 use bauer::Builder;
+use raylib_sys::Rectangle;
 
-use crate::{Bounded, Color, Rectangle, Texture2D, math::Vector2};
+use crate::{Bounded, color::Color, math::Vector2, texture::Texture2D};
 
 // basic item that image, frame, and target can use
-pub trait DrawTarget {
+pub trait DrawTarget2D {
     fn clear_background(&mut self, color: Color);
 
     fn draw_pixel(&mut self, position: impl Into<Vector2>, color: Color);
@@ -68,9 +69,9 @@ macro_rules! deref {
     };
 }
 
-impl<T> DrawTarget for &mut T
+impl<T> DrawTarget2D for &mut T
 where
-    T: DrawTarget,
+    T: DrawTarget2D,
 {
     deref![
         fn clear_background(&mut self, color: Color);
@@ -147,7 +148,7 @@ type FilledDrawRectangleBuilder<T> = DrawRectangleBuilder<
     DrawRectangle_Color_Set<true>,
 >;
 
-impl<T: DrawTargetFull> FilledDrawRectangleBuilder<T> {
+impl<T: DrawTarget2DFull> FilledDrawRectangleBuilder<T> {
     pub fn draw(self) {
         let mut draw_rect = self.build();
         draw_rect.target.draw_rectangle_pro(
@@ -202,7 +203,7 @@ impl<T> DrawTextureBuilder<'_, T> {
 impl<'target, T> DrawTextureBuilder<'target, T> {
     pub fn draw(self)
     where
-        T: DrawTargetFull,
+        T: DrawTarget2DFull,
         Self: 'target,
     {
         let this = self.build().unwrap();
@@ -229,7 +230,7 @@ impl<'target, T> DrawTextureBuilder<'target, T> {
 }
 
 // the full set of global draw functions from raylib
-pub trait DrawTargetFull: DrawTarget + Sized {
+pub trait DrawTarget2DFull: DrawTarget2D + Sized {
     fn draw_line_strip(&mut self, points: &[Vector2], color: Color);
     fn draw_line_bezier(
         &mut self,
@@ -433,9 +434,9 @@ pub trait DrawTargetFull: DrawTarget + Sized {
     }
 }
 
-impl<T> DrawTargetFull for &mut T
+impl<T> DrawTarget2DFull for &mut T
 where
-    T: DrawTargetFull,
+    T: DrawTarget2DFull,
 {
     deref![
         fn draw_line_strip(&mut self, points: &[Vector2], color: Color);

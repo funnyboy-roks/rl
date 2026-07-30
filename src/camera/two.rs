@@ -1,247 +1,142 @@
-use std::{ffi::CString, path::Path, rc::Rc, sync::atomic::Ordering};
-
-use raylib_sys::{self as sys};
+use std::{ffi::CString, sync::atomic::Ordering};
 
 use crate::{
-    Bounded, Color, Rectangle, Vector2,
+    Canvas, Rectangle,
+    color::Color,
     draw::{DrawTarget2D, DrawTarget2DFull},
-    globals::DRAWING_TO_TEXTURE,
-    image::Image,
+    globals::{DRAWING_TO_CAMERA, DRAWING_TO_TEXTURE, WINDOW_INITIALISED},
+    math::Vector2,
+    texture::Texture2D,
 };
 
-// TODO/NOTE: This reference-counted garbage collection pattern here is sad, but I need to find the
-// correct way to tell the borrow checker that a Texture2D passed to a DrawTarget needs to outlive
-// said target.
-//
-// take the following code:
-//
-// ```rust
-// while let Some(mut frame) = window.next_frame() {
-//     let texture = Texture2D::load("foo.png");
-//
-//     texture.draw_texture(texture, ...);
-// }
-// ```
-//
-// Currently, this will draw the texture as black because `UnloadTexture` (called by Texture2D drop)
-// is called _before_ `EndDrawing` (called by Frame drop).  Basically as use-after-free.
-//
-// The correct drop order should be Frame -> Texture2D, but I am unable to get the lifetimes working
-// correctly for that to happen.
-//
-// If the drops can't be inferred correctly, then at the very least we should get an error about the
-// texture lifetime being less than the frame.
-//
-// Because I haven't been able to get the lifetimes done correctly, we have this temporary (lol)
-// solution.
+use raylib_sys as sys;
 
-#[derive(Debug)]
-#[repr(transparent)]
-pub struct Texture2D(Rc<sys::Texture2D>);
-
-impl Drop for Texture2D {
-    fn drop(&mut self) {
-        if let Some(tex) = Rc::get_mut(&mut self.0) {
-            unsafe { sys::UnloadTexture(*tex) };
-        }
-    }
-}
-
-impl Bounded for Texture2D {
-    fn width(&self) -> u32 {
-        self.0.width as _
-    }
-
-    fn height(&self) -> u32 {
-        self.0.height as _
-    }
-}
-
-impl AsRef<Texture2D> for &Texture2D {
-    fn as_ref(&self) -> &Texture2D {
-        self
-    }
-}
-
-impl Texture2D {
-    pub(crate) fn from_sys(texture: sys::Texture2D) -> Option<Self> {
-        Self::is_valid(texture).then_some(Self(Rc::new(texture)))
-    }
-
-    pub(crate) fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-
-    pub(crate) fn inner(&self) -> Rc<sys::Texture2D> {
-        self.0.clone()
-    }
-
-    pub(crate) fn is_valid(texture: sys::Texture2D) -> bool {
-        unsafe { sys::IsTextureValid(texture) }
-    }
-
-    // https://github.com/raysan5/raylib/blob/master/src/rtextures.c#L4229
-    pub fn load(file: impl AsRef<Path>) -> std::io::Result<Self> {
-        let image = Image::load(file)?;
-        Ok(Self::from_image(&image))
-    }
-
-    pub fn from_image(image: &Image) -> Self {
-        Self::from_sys(unsafe { sys::LoadTextureFromImage(image.inner()) })
-            .expect("Texture is valid if the image is valid")
-    }
-}
-
-#[derive(Debug)]
-pub struct RenderTexture2D {
-    id: u32,
-    texture: Texture2D,
-    depth: Texture2D,
-}
-
-impl Drop for RenderTexture2D {
-    fn drop(&mut self) {
-        unsafe { sys::UnloadRenderTexture(self.inner()) };
-    }
-}
-
-impl Bounded for RenderTexture2D {
-    fn width(&self) -> u32 {
-        self.texture.width()
-    }
-
-    fn height(&self) -> u32 {
-        self.texture.height()
-    }
-}
-
-impl RenderTexture2D {
-    pub(crate) fn from_sys(texture: sys::RenderTexture2D) -> Option<Self> {
-        Self::is_valid(texture).then_some(Self {
-            id: texture.id,
-            texture: Texture2D::from_sys(texture.texture).unwrap(),
-            depth: Texture2D::from_sys(texture.depth).unwrap(),
-        })
-    }
-
-    pub(crate) fn inner(&self) -> sys::RenderTexture2D {
-        sys::RenderTexture2D {
-            id: self.id,
-            texture: *self.texture.inner(),
-            depth: *self.depth.inner(),
-        }
-    }
-
-    pub(crate) fn is_valid(texture: sys::RenderTexture2D) -> bool {
-        unsafe { sys::IsRenderTextureValid(texture) }
-    }
-
-    /// Create a new render texture
+#[derive(bauer::Builder, Clone, Copy, Debug)]
+#[builder(
+    const,
+    build_fn {
+        map = |c| -> Camera2D { assert!(c.zoom > 0.); c }
+    },
+)]
+pub struct Camera2D {
+    /// Camera offset (screen space offset from window origin)
     ///
-    /// # Panics
+    /// default = `Vector2::ZERO`
+    #[builder(default = "Vector2::ZERO")]
+    pub offset: Vector2,
+    /// Camera target (world space target point that is mapped to screen space offset)
     ///
-    /// If failed to be created
-    pub fn new(width: u32, height: u32) -> Self {
-        Self::try_new(width, height).expect("Failed to create render texture")
-    }
+    /// default = `Vector2::ZERO`
+    #[builder(default = "Vector2::ZERO")]
+    pub target: Vector2,
+    /// Camera rotation in degrees (pivots around target)
+    ///
+    /// default = `0.0`
+    #[builder(default = "0.")]
+    pub rotation: f32,
+    /// Camera zoom (scaling around target)
+    ///
+    /// **Must not be set to 0**
+    ///
+    /// default = `1.0`
+    #[builder(default = "1.")]
+    pub zoom: f32,
+}
 
-    /// Attempt to create a new render texture and return None if it can't be created
-    pub fn try_new(width: u32, height: u32) -> Option<Self> {
-        Self::from_sys(unsafe { sys::LoadRenderTexture(width as _, height as _) })
-    }
-
-    /// Color buffer attachment texture
-    pub fn texture(&self) -> Texture2D {
-        self.texture.clone()
-    }
-
-    /// Depth buffer attachment texture
-    pub fn depth(&self) -> Texture2D {
-        self.depth.clone()
-    }
-
-    /// OpenGL framebuffer object id
-    pub fn id(&self) -> u32 {
-        self.id
-    }
-
-    pub fn draw_with<'t, F>(&'t mut self, f: F)
-    where
-        F: FnOnce(&mut DrawRenderTexture2D<'t>),
-    {
-        let mut ctx = self.draw();
-        f(&mut ctx);
-        drop(ctx);
-    }
-
-    // TODO: link to frame in some way?
-    fn draw<'t>(&'t mut self) -> DrawRenderTexture2D<'t> {
-        DrawRenderTexture2D::new(self)
+impl Default for Camera2D {
+    /// Generate a default camera with:
+    ///
+    /// - `offset` = [`Vector2::ZERO`]
+    /// - `target` = [`Vector2::ZERO`]
+    /// - `rotation` = `0.0`
+    /// - `zoom` = `1.0`
+    fn default() -> Self {
+        Self::builder().build()
     }
 }
 
-pub struct DrawRenderTexture2D<'texture> {
-    texture: &'texture mut RenderTexture2D,
-    resources: Vec<Texture2D>,
-}
-
-impl DrawRenderTexture2D<'_> {
-    #[inline]
-    fn assert_can_draw(&self) {
-        assert!(
-            DRAWING_TO_TEXTURE.load(Ordering::Acquire),
-            "Attempting to draw to texture without calling BeginTextureMode"
-        );
-    }
-}
-
-impl Drop for DrawRenderTexture2D<'_> {
-    fn drop(&mut self) {
-        if DRAWING_TO_TEXTURE
-            .compare_exchange(true, false, Ordering::Acquire, Ordering::Acquire)
-            .is_err()
-        {
-            panic!("Attempted to end texture drawing without calling BeginTextureMode");
+impl Camera2D {
+    fn to_sys(self) -> sys::Camera2D {
+        sys::Camera2D {
+            offset: self.offset.into(),
+            target: self.target.into(),
+            rotation: self.rotation,
+            zoom: self.zoom,
         }
-        // SAFETY: We call this in the constructor
-        unsafe { sys::EndTextureMode() };
     }
 }
 
-impl<'t> DrawRenderTexture2D<'t> {
-    fn new(texture: &'t mut RenderTexture2D) -> Self {
-        if DRAWING_TO_TEXTURE
+pub struct Camera2DCanvas<'window, 'canvas> {
+    canvas: &'canvas mut Canvas<'window>,
+    _camera: Camera2D,
+}
+
+impl<'w, 'c> Camera2DCanvas<'w, 'c> {
+    pub(crate) fn new(canvas: &'c mut Canvas<'w>, camera: Camera2D) -> Self {
+        if DRAWING_TO_CAMERA
             .compare_exchange(false, true, Ordering::Acquire, Ordering::Acquire)
             .is_err()
         {
-            panic!("Only one texture may be drawn to at a time.");
+            panic!("Only one camera may be drawn to at a time.");
         }
-        unsafe { sys::BeginTextureMode(texture.inner()) };
+        unsafe { sys::BeginMode2D(camera.to_sys()) }
         Self {
-            texture,
-            resources: Vec::new(),
+            canvas,
+            _camera: camera,
         }
     }
-}
 
-impl Bounded for DrawRenderTexture2D<'_> {
-    fn width(&self) -> u32 {
-        self.texture.width()
+    #[inline]
+    fn can_draw() -> bool {
+        // window is initialised and we are not drawing to a texture
+        WINDOW_INITIALISED.load(Ordering::Acquire)
+            && !DRAWING_TO_TEXTURE.load(Ordering::Acquire)
+            && DRAWING_TO_CAMERA.load(Ordering::Acquire)
     }
 
-    fn height(&self) -> u32 {
-        self.texture.height()
+    #[inline]
+    fn assert_can_draw() {
+        assert!(
+            WINDOW_INITIALISED.load(Ordering::Acquire),
+            "Attempting to draw without a window initialised"
+        );
+        assert!(
+            !DRAWING_TO_TEXTURE.load(Ordering::Acquire),
+            "Cannot draw to frame while drawing to texture"
+        );
+        assert!(
+            DRAWING_TO_CAMERA.load(Ordering::Acquire),
+            "Attempting to draw to uninitialsed camera"
+        );
+        assert!(Self::can_draw());
+    }
+
+    // A bit more ergonmic way to drop self
+    pub fn end(self) {
+        drop(self);
     }
 }
 
-impl DrawTarget2D for DrawRenderTexture2D<'_> {
+impl<'w, 'c> Drop for Camera2DCanvas<'w, 'c> {
+    fn drop(&mut self) {
+        if DRAWING_TO_CAMERA
+            .compare_exchange(true, false, Ordering::Acquire, Ordering::Acquire)
+            .is_err()
+        {
+            panic!("Attempted to end camera drawing without calling BeginCamera2D");
+        }
+        unsafe { sys::EndMode2D() }
+    }
+}
+
+impl DrawTarget2D for Camera2DCanvas<'_, '_> {
     fn clear_background(&mut self, color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe { sys::ClearBackground(color.into()) }
     }
 
     fn draw_pixel(&mut self, positon: impl Into<Vector2>, color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe { sys::DrawPixelV(positon.into().into(), color.into()) }
     }
 
@@ -252,28 +147,28 @@ impl DrawTarget2D for DrawRenderTexture2D<'_> {
         thick: f32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe { sys::DrawLineEx(from.into().into(), to.into().into(), thick, color.into()) };
     }
 
     fn draw_circle(&mut self, center: impl Into<Vector2>, radius: f32, color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         let center = center.into();
         unsafe { sys::DrawCircle(center.x as _, center.y as _, radius, color.into()) };
     }
 
     fn draw_circle_lines(&mut self, center: impl Into<Vector2>, radius: f32, color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe { sys::DrawCircleLinesV(center.into().into(), radius, color.into()) }
     }
 
     fn draw_rectangle(&mut self, rect: Rectangle, color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe { sys::DrawRectangleRec(rect, color.into()) };
     }
 
     fn draw_rectangle_lines(&mut self, rect: Rectangle, line_thick: f32, color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe { sys::DrawRectangleLinesEx(rect, line_thick, color.into()) };
     }
 
@@ -284,7 +179,7 @@ impl DrawTarget2D for DrawRenderTexture2D<'_> {
         p3: impl Into<Vector2>,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawTriangle(
                 p1.into().into(),
@@ -302,7 +197,7 @@ impl DrawTarget2D for DrawRenderTexture2D<'_> {
         p3: impl Into<Vector2>,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawTriangleLines(
                 p1.into().into(),
@@ -314,12 +209,14 @@ impl DrawTarget2D for DrawRenderTexture2D<'_> {
     }
 
     fn draw_triangle_fan(&mut self, points: &[Vector2], color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
+        // cast here is fine because both Vector2s have the same layout
         unsafe { sys::DrawTriangleFan(points.as_ptr().cast(), points.len() as _, color.into()) };
     }
 
     fn draw_triangle_strip(&mut self, points: &[Vector2], color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
+        // cast here is fine because both Vector2s have the same layout
         unsafe { sys::DrawTriangleStrip(points.as_ptr().cast(), points.len() as _, color.into()) };
     }
 
@@ -330,7 +227,7 @@ impl DrawTarget2D for DrawRenderTexture2D<'_> {
         font_size: u32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         let text = CString::new(text.as_ref()).expect("str has no null");
         let pos = pos.into();
         unsafe {
@@ -345,9 +242,10 @@ impl DrawTarget2D for DrawRenderTexture2D<'_> {
     }
 }
 
-impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
+impl DrawTarget2DFull for Camera2DCanvas<'_, '_> {
     fn draw_line_strip(&mut self, points: &[Vector2], color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
+        // cast here is fine because both Vector2s have the same layout
         unsafe { sys::DrawLineStrip(points.as_ptr().cast(), points.len() as _, color.into()) };
     }
 
@@ -358,7 +256,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
         thick: f32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe { sys::DrawLineBezier(start.into().into(), end.into().into(), thick, color.into()) };
     }
 
@@ -370,7 +268,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
         space_size: u32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawLineDashed(
                 start.into().into(),
@@ -389,7 +287,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
         inner: Color,
         outer: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawCircleGradient(center.into().into(), radius, inner.into(), outer.into())
         };
@@ -404,7 +302,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
         segments: u32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawCircleSector(
                 center.into().into(),
@@ -426,7 +324,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
         segments: u32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawCircleSectorLines(
                 center.into().into(),
@@ -445,7 +343,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
         radius: impl Into<Vector2>,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         let radius = radius.into();
         unsafe { sys::DrawEllipseV(center.into().into(), radius.x, radius.y, color.into()) };
     }
@@ -456,7 +354,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
         radius: impl Into<Vector2>,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         let radius = radius.into();
         unsafe { sys::DrawEllipseLinesV(center.into().into(), radius.x, radius.y, color.into()) };
     }
@@ -471,7 +369,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
         segments: u32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawRing(
                 center.into().into(),
@@ -495,7 +393,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
         segments: u32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawRingLines(
                 center.into().into(),
@@ -517,7 +415,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
         bottom_left: Color,
         bottom_right: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawRectangleGradientEx(
                 rect,
@@ -536,7 +434,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
         rotation: f32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe { sys::DrawRectanglePro(rect, origin.into().into(), rotation, color.into()) };
     }
 
@@ -547,7 +445,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
         segments: u32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe { sys::DrawRectangleRounded(rect, roundness, segments as _, color.into()) };
     }
 
@@ -559,7 +457,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
         thick: f32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawRectangleRoundedLinesEx(rect, roundness, segments as _, thick, color.into())
         };
@@ -573,7 +471,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
         rotation: f32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawPoly(
                 center.into().into(),
@@ -594,7 +492,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
         thick: f32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawPolyLinesEx(
                 center.into().into(),
@@ -608,7 +506,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
     }
 
     fn draw_spline_linear(&mut self, points: &[Vector2], thick: f32, color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawSplineLinear(
                 points.as_ptr().cast(),
@@ -620,7 +518,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
     }
 
     fn draw_spline_basis(&mut self, points: &[Vector2], thick: f32, color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawSplineBasis(
                 points.as_ptr().cast(),
@@ -632,7 +530,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
     }
 
     fn draw_spline_catmull_rom(&mut self, points: &[Vector2], thick: f32, color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawSplineCatmullRom(
                 points.as_ptr().cast(),
@@ -644,7 +542,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
     }
 
     fn draw_spline_bezier_quadratic(&mut self, points: &[Vector2], thick: f32, color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawSplineBezierQuadratic(
                 points.as_ptr().cast(),
@@ -656,7 +554,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
     }
 
     fn draw_spline_bezier_cubic(&mut self, points: &[Vector2], thick: f32, color: Color) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawSplineBezierCubic(
                 points.as_ptr().cast(),
@@ -674,7 +572,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
         thick: f32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawSplineSegmentLinear(p1.into().into(), p2.into().into(), thick, color.into())
         };
@@ -689,7 +587,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
         thick: f32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawSplineSegmentBasis(
                 p1.into().into(),
@@ -711,7 +609,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
         thick: f32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawSplineSegmentCatmullRom(
                 p1.into().into(),
@@ -732,7 +630,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
         thick: f32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawSplineSegmentBezierQuadratic(
                 p1.into().into(),
@@ -753,7 +651,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
         thick: f32,
         color: Color,
     ) {
-        self.assert_can_draw();
+        Self::assert_can_draw();
         unsafe {
             sys::DrawSplineSegmentBezierCubic(
                 p1.into().into(),
@@ -774,8 +672,12 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
         scale: f32,
         tint: Color,
     ) {
-        self.assert_can_draw();
-        self.resources.push(texture.clone());
+        Self::assert_can_draw();
+        self.canvas
+            .frame
+            .window
+            .resources
+            .push(Box::new(texture.clone()));
         unsafe {
             sys::DrawTextureEx(
                 *texture.inner(),
@@ -796,8 +698,12 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
         rotation: f32,
         tint: Color,
     ) {
-        self.assert_can_draw();
-        self.resources.push(texture.clone());
+        Self::assert_can_draw();
+        self.canvas
+            .frame
+            .window
+            .resources
+            .push(Box::new(texture.clone()));
         unsafe {
             sys::DrawTexturePro(
                 *texture.inner(),

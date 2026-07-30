@@ -6,9 +6,9 @@ use raylib_sys::{self as sys};
 
 pub use raylib_sys::{MouseButton, Rectangle};
 
-use crate::camera::{Camera2D, Camera2DCanvas};
+use crate::camera::{Camera2D, Camera2DCanvas, Camera3D, Camera3DCanvas};
 use crate::color::Color;
-use crate::draw::{DrawTarget, DrawTargetFull};
+use crate::draw::{DrawTarget2D, DrawTarget2DFull};
 use crate::globals::{DRAWING_TO_CAMERA, DRAWING_TO_TEXTURE, WINDOW_INITIALISED};
 use crate::image::Image;
 use crate::input::{Gamepad, Keyboard, Mouse};
@@ -34,12 +34,12 @@ pub mod window;
 pub mod prelude {
     pub use crate::{
         Bounded, Rectangle,
-        camera::Camera2D,
+        camera::{Camera2D, Camera3D, CameraMode, CameraProjection},
         color::Color,
-        draw::{DrawTarget, DrawTargetFull},
+        draw::{DrawTarget2D, DrawTarget2DFull, DrawTarget3D},
         image::{FileType, Image, ImageResizeMode},
         input::{Gamepad, GamepadAxis, GamepadButton, KeyboardKey, MouseButton},
-        math::{Vector2, Vector3, Vector4},
+        math::{Angle, Matrix, Ray, Vector2, Vector3, Vector4},
         rand::Random,
         shader,
         shader::Shader,
@@ -180,15 +180,28 @@ impl<'w> Canvas<'w> {
         assert!(Self::can_draw());
     }
 
-    pub fn camera_mode_2d<'c>(&'c mut self, camera: Camera2D) -> Camera2DCanvas<'w, 'c> {
+    pub fn begin_camera_2d<'c>(&'c mut self, camera: Camera2D) -> Camera2DCanvas<'w, 'c> {
         Camera2DCanvas::new(self, camera)
     }
 
-    pub fn with_camera_mode_2d<'c, F>(&'c mut self, camera: Camera2D, f: F)
+    pub fn with_camera_2d<'c, F>(&'c mut self, camera: Camera2D, f: F)
     where
         F: FnOnce(&mut Camera2DCanvas<'w, 'c>),
     {
         let mut cc = Camera2DCanvas::new(self, camera);
+        f(&mut cc);
+        drop(cc);
+    }
+
+    pub fn begin_camera_3d<'c>(&'c mut self, camera: Camera3D) -> Camera3DCanvas<'w, 'c> {
+        Camera3DCanvas::new(self, camera)
+    }
+
+    pub fn with_camera_3d<'c, F>(&'c mut self, camera: Camera3D, f: F)
+    where
+        F: FnOnce(&mut Camera3DCanvas<'w, 'c>),
+    {
+        let mut cc = Camera3DCanvas::new(self, camera);
         f(&mut cc);
         drop(cc);
     }
@@ -202,7 +215,7 @@ impl<'w> Canvas<'w> {
 impl Drop for Canvas<'_> {
     fn drop(&mut self) {
         // XXX: This function should not access `self.frame` as its value may not be safe to use
-        // (see `end_drawing`)
+        // (see `Self::end`)
 
         // SAFETY: We started drawing when this struct was created and we are stopping now that it's
         // being destructed
@@ -220,7 +233,7 @@ impl Bounded for Canvas<'_> {
     }
 }
 
-impl DrawTarget for Canvas<'_> {
+impl DrawTarget2D for Canvas<'_> {
     fn clear_background(&mut self, color: Color) {
         Self::assert_can_draw();
         unsafe { sys::ClearBackground(color.into()) }
@@ -333,7 +346,7 @@ impl DrawTarget for Canvas<'_> {
     }
 }
 
-impl DrawTargetFull for Canvas<'_> {
+impl DrawTarget2DFull for Canvas<'_> {
     fn draw_line_strip(&mut self, points: &[Vector2], color: Color) {
         Self::assert_can_draw();
         // cast here is fine because both Vector2s have the same layout

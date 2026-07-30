@@ -492,3 +492,39 @@ impl DivAssign<f32> for Vector3 {
         *self = *self / rhs;
     }
 }
+
+pub struct Ray {
+    pub position: Vector3,
+    pub direction: Vector3,
+}
+
+impl Ray {
+    /// Construct a new ray and normalise the direction
+    pub fn new_normalise(position: Vector3, direction: Vector3) -> Self {
+        Self::new(position, direction.normalize())
+    }
+
+    /// Construct a new ray
+    pub const fn new(position: Vector3, direction: Vector3) -> Self {
+        assert!(direction.length_sq() == 1.);
+        Self {
+            position,
+            direction,
+        }
+    }
+}
+
+impl From<raylib_sys::Ray> for Ray {
+    fn from(value: raylib_sys::Ray) -> Self {
+        Self::new(value.position.into(), value.direction.into())
+    }
+}
+
+impl From<Ray> for raylib_sys::Ray {
+    fn from(value: Ray) -> Self {
+        raylib_sys::Ray {
+            position: value.position.into(),
+            direction: value.direction.into(),
+        }
+    }
+}

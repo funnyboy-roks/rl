@@ -8,7 +8,7 @@ use std::{
 use raylib_sys::{self as sys, PixelFormat};
 
 use crate::{
-    Bounded, Color, DrawTarget, Rectangle, Texture2D, Vector2, bytes::RlSlice, window::Window,
+    Bounded, Color, DrawTarget2D, Rectangle, Texture2D, Vector2, bytes::RlSlice, window::Window,
 };
 
 macro_rules! filetype {
@@ -606,7 +606,7 @@ impl Bounded for Image {
     }
 }
 
-impl DrawTarget for Image {
+impl DrawTarget2D for Image {
     fn clear_background(&mut self, color: Color) {
         unsafe { sys::ImageClearBackground(&raw mut self.0, color.into()) };
     }

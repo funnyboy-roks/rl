@@ -167,6 +167,10 @@ impl Window {
         unsafe { sys::SetExitKey(key.unwrap_or(KeyboardKey::KEY_NULL) as u32 as i32) };
     }
 
+    pub fn disable_cursor(&mut self) {
+        unsafe { sys::DisableCursor() };
+    }
+
     /// Get the next frame
     pub fn next_frame<'w>(&'w mut self) -> Option<Frame<'w>> {
         self.resources.clear();
