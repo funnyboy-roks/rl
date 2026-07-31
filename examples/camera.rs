@@ -52,7 +52,7 @@ fn main() {
         frame.with_canvas(|canvas| {
             canvas.clear_background(Color::BLUE);
 
-            canvas.with_camera_mode_2d(camera, |cam| {
+            canvas.with_camera_2d(camera, |cam| {
                 // draw some circles as a reference point for the camera
                 for i in 0..200 {
                     let r = i as f32 * 50.;

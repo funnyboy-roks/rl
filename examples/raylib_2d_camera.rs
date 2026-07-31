@@ -61,7 +61,7 @@ fn main() {
 
         let size = canvas.size();
 
-        canvas.with_camera_mode_2d(camera, |cam| {
+        canvas.with_camera_2d(camera, |cam| {
             cam.draw_rectangle(Rectangle::new(-6000., 320., 13000., 8000.), Color::DARKGRAY);
 
             for &(rect, col) in &buildings {
