@@ -8,7 +8,7 @@ use std::{
 
 use raylib_sys as sys;
 
-use crate::math::Vector2;
+use crate::math::{Vector2, Vector3, Vector4};
 
 mod sealed {
     use raylib_sys as sys;
@@ -49,13 +49,13 @@ impl_shader_uniform!(Vector2 =>
         unsafe { sys::SetShaderValue(shader, index, (&raw const items).cast(), sys::ShaderUniformDataType::SHADER_UNIFORM_VEC2 as _) }
     }
 );
-impl_shader_uniform!(sys::Vector3 =>
+impl_shader_uniform!(Vector3 =>
     fn set(self, shader: sys::Shader, index: i32) {
         let items = [self.x, self.y, self.z];
         unsafe { sys::SetShaderValue(shader, index, (&raw const items).cast(), sys::ShaderUniformDataType::SHADER_UNIFORM_VEC3 as _) }
     }
 );
-impl_shader_uniform!(sys::Vector4 =>
+impl_shader_uniform!(Vector4 =>
     fn set(self, shader: sys::Shader, index: i32) {
         let items = [self.x, self.y, self.z, self.w];
         unsafe { sys::SetShaderValue(shader, index, (&raw const items).cast(), sys::ShaderUniformDataType::SHADER_UNIFORM_VEC4 as _) }

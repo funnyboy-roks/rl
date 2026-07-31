@@ -61,22 +61,22 @@ fn main() {
         // update player
         let player_speed = player_speed * frame.get_time();
         let mut player1_speed = 0.;
-        if frame.keyboard().is_key_down(KeyboardKey::S)
+        if frame.keyboard().is_key_down(Key::S)
             && player1.y + player1.height + player_speed < frame.height() as _
         {
             player1_speed += player_speed;
         }
-        if frame.keyboard().is_key_down(KeyboardKey::W) && player1.y - player_speed > 0. {
+        if frame.keyboard().is_key_down(Key::W) && player1.y - player_speed > 0. {
             player1_speed -= player_speed;
         }
 
         let mut player2_speed = 0.;
-        if frame.keyboard().is_key_down(KeyboardKey::J)
+        if frame.keyboard().is_key_down(Key::J)
             && player2.y + player2.height + player_speed < frame.height() as _
         {
             player2_speed += player_speed;
         }
-        if frame.keyboard().is_key_down(KeyboardKey::K) && player2.y - player_speed > 0. {
+        if frame.keyboard().is_key_down(Key::K) && player2.y - player_speed > 0. {
             player2_speed -= player_speed;
         }
 

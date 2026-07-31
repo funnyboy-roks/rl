@@ -72,6 +72,10 @@ impl Texture2D {
         Self(self.0.clone())
     }
 
+    pub(crate) fn inner_ref(&self) -> &sys::Texture2D {
+        &self.0
+    }
+
     pub(crate) fn inner(&self) -> Rc<sys::Texture2D> {
         self.0.clone()
     }

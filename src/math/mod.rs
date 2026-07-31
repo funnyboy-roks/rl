@@ -2,6 +2,7 @@
 
 mod four;
 mod matrix;
+pub mod shapes;
 mod three;
 mod two;
 

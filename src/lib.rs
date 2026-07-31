@@ -2,9 +2,6 @@ use std::ffi::CString;
 use std::sync::atomic::Ordering;
 
 use derive_more::{Deref, DerefMut};
-use raylib_sys::{self as sys};
-
-pub use raylib_sys::{MouseButton, Rectangle};
 
 use crate::camera::{Camera2D, Camera2DCanvas, Camera3D, Camera3DCanvas};
 use crate::color::Color;
@@ -16,6 +13,8 @@ use crate::math::Vector2;
 use crate::texture::Texture2D;
 use crate::window::Window;
 
+pub use raylib_sys::{self as sys, Rectangle};
+
 pub mod bytes;
 pub mod camera;
 pub mod color;
@@ -25,11 +24,16 @@ pub mod image;
 pub mod input;
 pub mod math;
 pub mod rand;
+pub mod rlgl;
 pub mod shader;
 pub mod text;
 pub mod texture;
 mod util;
 pub mod window;
+
+mod sealed {
+    pub trait Sealed {}
+}
 
 pub mod prelude {
     pub use crate::{
@@ -38,11 +42,12 @@ pub mod prelude {
         color::Color,
         draw::{DrawTarget2D, DrawTarget2DFull, DrawTarget3D},
         image::{FileType, Image, ImageResizeMode},
-        input::{Gamepad, GamepadAxis, GamepadButton, KeyboardKey, MouseButton},
+        input::{Gamepad, GamepadAxis, GamepadButton, Key, MouseButton},
         math::{Angle, Matrix, Ray, Vector2, Vector3, Vector4},
         rand::Random,
         shader,
         shader::Shader,
+        text::Font,
         texture::{RenderTexture2D, Texture2D},
         window::{ConfigFlags, Window},
     };

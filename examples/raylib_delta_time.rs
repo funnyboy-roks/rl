@@ -39,7 +39,7 @@ fn main() {
             frame_circle.x = 0.;
         }
 
-        if frame.keyboard().is_key_pressed(KeyboardKey::R) {
+        if frame.keyboard().is_key_pressed(Key::R) {
             delta_circle.x = 0.;
             frame_circle.x = 0.;
         }

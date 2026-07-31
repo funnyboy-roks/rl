@@ -154,20 +154,20 @@ fn main() {
             t.draw_rectangle(t.bounds(), Color::BLACK);
         });
 
-        if frame.keyboard().is_key_pressed(KeyboardKey::One)
-            || frame.keyboard().is_key_pressed(KeyboardKey::Two)
-            || frame.keyboard().is_key_pressed(KeyboardKey::Three)
-            || frame.keyboard().is_key_pressed(KeyboardKey::Four)
-            || frame.keyboard().is_key_pressed(KeyboardKey::Five)
-            || frame.keyboard().is_key_pressed(KeyboardKey::Six)
+        if frame.keyboard().is_key_pressed(Key::One)
+            || frame.keyboard().is_key_pressed(Key::Two)
+            || frame.keyboard().is_key_pressed(Key::Three)
+            || frame.keyboard().is_key_pressed(Key::Four)
+            || frame.keyboard().is_key_pressed(Key::Five)
+            || frame.keyboard().is_key_pressed(Key::Six)
         {
             c = match () {
-                _ if frame.keyboard().is_key_pressed(KeyboardKey::One) => POINTS_OF_INTEREST[0],
-                _ if frame.keyboard().is_key_pressed(KeyboardKey::Two) => POINTS_OF_INTEREST[1],
-                _ if frame.keyboard().is_key_pressed(KeyboardKey::Three) => POINTS_OF_INTEREST[2],
-                _ if frame.keyboard().is_key_pressed(KeyboardKey::Four) => POINTS_OF_INTEREST[3],
-                _ if frame.keyboard().is_key_pressed(KeyboardKey::Five) => POINTS_OF_INTEREST[4],
-                _ if frame.keyboard().is_key_pressed(KeyboardKey::Six) => POINTS_OF_INTEREST[5],
+                _ if frame.keyboard().is_key_pressed(Key::One) => POINTS_OF_INTEREST[0],
+                _ if frame.keyboard().is_key_pressed(Key::Two) => POINTS_OF_INTEREST[1],
+                _ if frame.keyboard().is_key_pressed(Key::Three) => POINTS_OF_INTEREST[2],
+                _ if frame.keyboard().is_key_pressed(Key::Four) => POINTS_OF_INTEREST[3],
+                _ if frame.keyboard().is_key_pressed(Key::Five) => POINTS_OF_INTEREST[4],
+                _ if frame.keyboard().is_key_pressed(Key::Six) => POINTS_OF_INTEREST[5],
                 _ => unreachable!(),
             };
 
@@ -175,7 +175,7 @@ fn main() {
         }
 
         // If "R" is pressed, reset zoom and offset
-        if frame.keyboard().is_key_pressed(KeyboardKey::R) {
+        if frame.keyboard().is_key_pressed(Key::R) {
             zoom = STARTING_ZOOM;
             offset = Vector2::ZERO;
 
@@ -183,16 +183,16 @@ fn main() {
             offset_loc.set(offset);
         }
 
-        if frame.keyboard().is_key_pressed(KeyboardKey::Space) {
+        if frame.keyboard().is_key_pressed(Key::Space) {
             increment_speed = 0.
         } // Pause animation (c change)
-        if frame.keyboard().is_key_pressed(KeyboardKey::F1) {
+        if frame.keyboard().is_key_pressed(Key::F1) {
             show_controls = !show_controls
         } // Toggle whether or not to show controls
 
-        if frame.keyboard().is_key_pressed(KeyboardKey::Right) {
+        if frame.keyboard().is_key_pressed(Key::Right) {
             increment_speed += 1.
-        } else if frame.keyboard().is_key_pressed(KeyboardKey::Left) {
+        } else if frame.keyboard().is_key_pressed(Key::Left) {
             increment_speed -= 1.
         }
 

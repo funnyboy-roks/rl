@@ -15,36 +15,36 @@ fn main() {
         camera.offset = frame.size() / 2.;
 
         let mut vel = Vector2::ZERO;
-        if frame.keyboard().is_key_down(KeyboardKey::A) {
+        if frame.keyboard().is_key_down(Key::A) {
             vel.x -= 1.;
         }
-        if frame.keyboard().is_key_down(KeyboardKey::D) {
+        if frame.keyboard().is_key_down(Key::D) {
             vel.x += 1.;
         }
-        if frame.keyboard().is_key_down(KeyboardKey::S) {
+        if frame.keyboard().is_key_down(Key::S) {
             vel.y += 1.;
         }
-        if frame.keyboard().is_key_down(KeyboardKey::W) {
+        if frame.keyboard().is_key_down(Key::W) {
             vel.y -= 1.;
         }
         player += vel.normalize() * 10.;
 
         let mut vel = Vector2::ZERO;
-        if frame.keyboard().is_key_down(KeyboardKey::Left) {
+        if frame.keyboard().is_key_down(Key::Left) {
             vel.x -= 1.;
         }
-        if frame.keyboard().is_key_down(KeyboardKey::Right) {
+        if frame.keyboard().is_key_down(Key::Right) {
             vel.x += 1.;
         }
-        if frame.keyboard().is_key_down(KeyboardKey::Down) {
+        if frame.keyboard().is_key_down(Key::Down) {
             vel.y += 1.;
         }
-        if frame.keyboard().is_key_down(KeyboardKey::Up) {
+        if frame.keyboard().is_key_down(Key::Up) {
             vel.y -= 1.;
         }
         camera.target += vel.normalize() * 10.;
 
-        if frame.keyboard().is_key_pressed(KeyboardKey::R) {
+        if frame.keyboard().is_key_pressed(Key::R) {
             camera.target = Vector2::ZERO;
             player = Vector2::ZERO;
         }

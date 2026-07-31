@@ -170,7 +170,7 @@ impl Mouse {
 #[repr(u32)]
 #[rustfmt::skip]
 // NOTE: using the #[doc] syntax here, just so I can inline them
-pub enum KeyboardKey {
+pub enum Key {
     // Alphanumeric keys
     #[doc = r"Key: '"                          ] Apostrophe        = 39,
     #[doc = r"Key: ,"                          ] Comma             = 44,
@@ -286,7 +286,7 @@ pub enum KeyboardKey {
     #[doc = r"Key: Android volume down button" ] AndroidVolumeDown = 25,
 }
 
-impl KeyboardKey {
+impl Key {
     /// # SAFETY
     ///
     /// Caller must guarantee that `key` can be represented by [`KeyboardKey`]
@@ -301,115 +301,115 @@ impl KeyboardKey {
         // XXX: referencing `this` outside of the branch in this match is UNDEFINED BEHAVIOUR, do
         // not do it.
         match this {
-            KeyboardKey::Apostrophe
-            | KeyboardKey::Comma
-            | KeyboardKey::Minus
-            | KeyboardKey::Period
-            | KeyboardKey::Slash
-            | KeyboardKey::Zero
-            | KeyboardKey::One
-            | KeyboardKey::Two
-            | KeyboardKey::Three
-            | KeyboardKey::Four
-            | KeyboardKey::Five
-            | KeyboardKey::Six
-            | KeyboardKey::Seven
-            | KeyboardKey::Eight
-            | KeyboardKey::Nine
-            | KeyboardKey::Semicolon
-            | KeyboardKey::Equal
-            | KeyboardKey::A
-            | KeyboardKey::B
-            | KeyboardKey::C
-            | KeyboardKey::D
-            | KeyboardKey::E
-            | KeyboardKey::F
-            | KeyboardKey::G
-            | KeyboardKey::H
-            | KeyboardKey::I
-            | KeyboardKey::J
-            | KeyboardKey::K
-            | KeyboardKey::L
-            | KeyboardKey::M
-            | KeyboardKey::N
-            | KeyboardKey::O
-            | KeyboardKey::P
-            | KeyboardKey::Q
-            | KeyboardKey::R
-            | KeyboardKey::S
-            | KeyboardKey::T
-            | KeyboardKey::U
-            | KeyboardKey::V
-            | KeyboardKey::W
-            | KeyboardKey::X
-            | KeyboardKey::Y
-            | KeyboardKey::Z
-            | KeyboardKey::LeftBracket
-            | KeyboardKey::Backslash
-            | KeyboardKey::RightBracket
-            | KeyboardKey::Grave
-            | KeyboardKey::Space
-            | KeyboardKey::Escape
-            | KeyboardKey::Enter
-            | KeyboardKey::Tab
-            | KeyboardKey::Backspace
-            | KeyboardKey::Insert
-            | KeyboardKey::Delete
-            | KeyboardKey::Right
-            | KeyboardKey::Left
-            | KeyboardKey::Down
-            | KeyboardKey::Up
-            | KeyboardKey::PageUp
-            | KeyboardKey::PageDown
-            | KeyboardKey::Home
-            | KeyboardKey::End
-            | KeyboardKey::CapsLock
-            | KeyboardKey::ScrollLock
-            | KeyboardKey::NumLock
-            | KeyboardKey::PrintScreen
-            | KeyboardKey::Pause
-            | KeyboardKey::F1
-            | KeyboardKey::F2
-            | KeyboardKey::F3
-            | KeyboardKey::F4
-            | KeyboardKey::F5
-            | KeyboardKey::F6
-            | KeyboardKey::F7
-            | KeyboardKey::F8
-            | KeyboardKey::F9
-            | KeyboardKey::F10
-            | KeyboardKey::F11
-            | KeyboardKey::F12
-            | KeyboardKey::LeftShift
-            | KeyboardKey::LeftControl
-            | KeyboardKey::LeftAlt
-            | KeyboardKey::LeftSuper
-            | KeyboardKey::RightShift
-            | KeyboardKey::RightControl
-            | KeyboardKey::RightAlt
-            | KeyboardKey::RightSuper
-            | KeyboardKey::KbMenu
-            | KeyboardKey::Kp0
-            | KeyboardKey::Kp1
-            | KeyboardKey::Kp2
-            | KeyboardKey::Kp3
-            | KeyboardKey::Kp4
-            | KeyboardKey::Kp5
-            | KeyboardKey::Kp6
-            | KeyboardKey::Kp7
-            | KeyboardKey::Kp8
-            | KeyboardKey::Kp9
-            | KeyboardKey::KpDecimal
-            | KeyboardKey::KpDivide
-            | KeyboardKey::KpMultiply
-            | KeyboardKey::KpSubtract
-            | KeyboardKey::KpAdd
-            | KeyboardKey::KpEnter
-            | KeyboardKey::KpEqual
-            | KeyboardKey::AndroidBack
-            | KeyboardKey::AndroidMenu
-            | KeyboardKey::AndroidVolumeUp
-            | KeyboardKey::AndroidVolumeDown => return Some(this),
+            Key::Apostrophe
+            | Key::Comma
+            | Key::Minus
+            | Key::Period
+            | Key::Slash
+            | Key::Zero
+            | Key::One
+            | Key::Two
+            | Key::Three
+            | Key::Four
+            | Key::Five
+            | Key::Six
+            | Key::Seven
+            | Key::Eight
+            | Key::Nine
+            | Key::Semicolon
+            | Key::Equal
+            | Key::A
+            | Key::B
+            | Key::C
+            | Key::D
+            | Key::E
+            | Key::F
+            | Key::G
+            | Key::H
+            | Key::I
+            | Key::J
+            | Key::K
+            | Key::L
+            | Key::M
+            | Key::N
+            | Key::O
+            | Key::P
+            | Key::Q
+            | Key::R
+            | Key::S
+            | Key::T
+            | Key::U
+            | Key::V
+            | Key::W
+            | Key::X
+            | Key::Y
+            | Key::Z
+            | Key::LeftBracket
+            | Key::Backslash
+            | Key::RightBracket
+            | Key::Grave
+            | Key::Space
+            | Key::Escape
+            | Key::Enter
+            | Key::Tab
+            | Key::Backspace
+            | Key::Insert
+            | Key::Delete
+            | Key::Right
+            | Key::Left
+            | Key::Down
+            | Key::Up
+            | Key::PageUp
+            | Key::PageDown
+            | Key::Home
+            | Key::End
+            | Key::CapsLock
+            | Key::ScrollLock
+            | Key::NumLock
+            | Key::PrintScreen
+            | Key::Pause
+            | Key::F1
+            | Key::F2
+            | Key::F3
+            | Key::F4
+            | Key::F5
+            | Key::F6
+            | Key::F7
+            | Key::F8
+            | Key::F9
+            | Key::F10
+            | Key::F11
+            | Key::F12
+            | Key::LeftShift
+            | Key::LeftControl
+            | Key::LeftAlt
+            | Key::LeftSuper
+            | Key::RightShift
+            | Key::RightControl
+            | Key::RightAlt
+            | Key::RightSuper
+            | Key::KbMenu
+            | Key::Kp0
+            | Key::Kp1
+            | Key::Kp2
+            | Key::Kp3
+            | Key::Kp4
+            | Key::Kp5
+            | Key::Kp6
+            | Key::Kp7
+            | Key::Kp8
+            | Key::Kp9
+            | Key::KpDecimal
+            | Key::KpDivide
+            | Key::KpMultiply
+            | Key::KpSubtract
+            | Key::KpAdd
+            | Key::KpEnter
+            | Key::KpEqual
+            | Key::AndroidBack
+            | Key::AndroidMenu
+            | Key::AndroidVolumeUp
+            | Key::AndroidVolumeDown => return Some(this),
         }
 
         #[expect(
@@ -436,27 +436,27 @@ impl KeyboardKey {
 pub struct Keyboard;
 
 impl Keyboard {
-    pub fn is_key_pressed(&self, key: KeyboardKey) -> bool {
+    pub fn is_key_pressed(&self, key: Key) -> bool {
         assert_access_okay!();
         unsafe { sys::IsKeyPressed(key as _) }
     }
 
-    pub fn is_key_pressed_repeat(&self, key: KeyboardKey) -> bool {
+    pub fn is_key_pressed_repeat(&self, key: Key) -> bool {
         assert_access_okay!();
         unsafe { sys::IsKeyPressedRepeat(key as _) }
     }
 
-    pub fn is_key_down(&self, key: KeyboardKey) -> bool {
+    pub fn is_key_down(&self, key: Key) -> bool {
         assert_access_okay!();
         unsafe { sys::IsKeyDown(key as _) }
     }
 
-    pub fn is_key_released(&self, key: KeyboardKey) -> bool {
+    pub fn is_key_released(&self, key: Key) -> bool {
         assert_access_okay!();
         unsafe { sys::IsKeyReleased(key as _) }
     }
 
-    pub fn is_key_up(&self, key: KeyboardKey) -> bool {
+    pub fn is_key_up(&self, key: Key) -> bool {
         assert_access_okay!();
         unsafe { sys::IsKeyUp(key as _) }
     }
@@ -465,7 +465,7 @@ impl Keyboard {
     ///
     /// If only a few items of the iterator are consumed, this function may be called again to get
     /// the remaining keys.
-    pub fn get_keys_pressed<'f>(&'f mut self) -> impl Iterator<Item = KeyboardKey> + use<'f> {
+    pub fn get_keys_pressed<'f>(&'f mut self) -> impl Iterator<Item = Key> + use<'f> {
         assert_access_okay!();
         std::iter::from_fn(|| {
             assert_access_okay!();
@@ -476,10 +476,10 @@ impl Keyboard {
                 #[cfg(debug_assertions)]
                 {
                     // just assert when we're in debug mode
-                    KeyboardKey::from_u32(key as u32).expect("Invalid KeybordKey");
+                    Key::from_u32(key as u32).expect("Invalid KeybordKey");
                 }
                 // SAFETY: key should be a valid KeyboardKey according to Raylib
-                Some(unsafe { KeyboardKey::from_u32_unchecked(key as u32) })
+                Some(unsafe { Key::from_u32_unchecked(key as u32) })
             }
         })
     }

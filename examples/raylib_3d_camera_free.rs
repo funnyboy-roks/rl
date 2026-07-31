@@ -22,7 +22,7 @@ fn main() {
 
     while let Some(frame) = window.next_frame() {
         camera.update(CameraMode::Free);
-        if frame.keyboard().is_key_pressed(KeyboardKey::Z) {
+        if frame.keyboard().is_key_pressed(Key::Z) {
             camera.target = Vector3::ZERO;
         }
 

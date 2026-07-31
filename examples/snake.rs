@@ -57,23 +57,23 @@ fn main() {
         let pad_x = frame.width() % cell_size;
         let pad_y = frame.height() % cell_size;
 
-        if frame.keyboard().is_key_pressed(KeyboardKey::Down) && dir != Dir::Up {
+        if frame.keyboard().is_key_pressed(Key::Down) && dir != Dir::Up {
             dir = Dir::Down
         }
 
-        if frame.keyboard().is_key_pressed(KeyboardKey::Up) && dir != Dir::Down {
+        if frame.keyboard().is_key_pressed(Key::Up) && dir != Dir::Down {
             dir = Dir::Up
         }
 
-        if frame.keyboard().is_key_pressed(KeyboardKey::Right) && dir != Dir::Left {
+        if frame.keyboard().is_key_pressed(Key::Right) && dir != Dir::Left {
             dir = Dir::Right;
         }
 
-        if frame.keyboard().is_key_pressed(KeyboardKey::Left) && dir != Dir::Right {
+        if frame.keyboard().is_key_pressed(Key::Left) && dir != Dir::Right {
             dir = Dir::Left
         }
 
-        if dead && frame.keyboard().is_key_pressed(KeyboardKey::Space) {
+        if dead && frame.keyboard().is_key_pressed(Key::Space) {
             dir = Dir::Right;
             dead = false;
             fruit.clear();

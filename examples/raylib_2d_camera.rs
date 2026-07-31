@@ -31,17 +31,17 @@ fn main() {
         .build();
 
     while let Some(frame) = window.next_frame() {
-        if frame.keyboard().is_key_down(KeyboardKey::Right) {
+        if frame.keyboard().is_key_down(Key::Right) {
             player.x += 2.;
-        } else if frame.keyboard().is_key_down(KeyboardKey::Left) {
+        } else if frame.keyboard().is_key_down(Key::Left) {
             player.x -= 2.;
         }
 
         camera.target = Vector2::new(player.x + 20., player.y + 20.);
 
-        if frame.keyboard().is_key_down(KeyboardKey::A) {
+        if frame.keyboard().is_key_down(Key::A) {
             camera.rotation -= 1.;
-        } else if frame.keyboard().is_key_down(KeyboardKey::S) {
+        } else if frame.keyboard().is_key_down(Key::S) {
             camera.rotation += 1.;
         }
         camera.rotation = camera.rotation.clamp(-40., 40.);
@@ -51,7 +51,7 @@ fn main() {
         camera.zoom = (camera.zoom.ln() + frame.mouse().wheel_move() * 0.1).exp();
         camera.zoom = camera.zoom.clamp(0.1, 3.);
 
-        if frame.keyboard().is_key_pressed(KeyboardKey::R) {
+        if frame.keyboard().is_key_pressed(Key::R) {
             camera.zoom = 1.0;
             camera.rotation = 0.0;
         }

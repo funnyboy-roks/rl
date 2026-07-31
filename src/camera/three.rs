@@ -1,7 +1,7 @@
 use std::sync::atomic::Ordering;
 
 use crate::{
-    Canvas,
+    Canvas, Frame,
     color::Color,
     draw::DrawTarget3D,
     globals::{DRAWING_TO_CAMERA, DRAWING_TO_TEXTURE, WINDOW_INITIALISED},
@@ -148,6 +148,10 @@ impl<'w, 'c> Camera3DCanvas<'w, 'c> {
             canvas,
             _camera: camera,
         }
+    }
+
+    pub fn frame(&self) -> &Frame<'w> {
+        &self.canvas.frame
     }
 
     #[inline]

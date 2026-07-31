@@ -28,11 +28,11 @@ fn main() {
     let mut gamepad_i: u32 = 0;
 
     while let Some(frame) = window.next_frame() {
-        if frame.keyboard().is_key_pressed(KeyboardKey::Left) {
+        if frame.keyboard().is_key_pressed(Key::Left) {
             gamepad_i = gamepad_i.saturating_sub(1);
         }
 
-        if frame.keyboard().is_key_pressed(KeyboardKey::Right) {
+        if frame.keyboard().is_key_pressed(Key::Right) {
             gamepad_i += 1;
         }
 
