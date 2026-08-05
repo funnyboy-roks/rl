@@ -1,12 +1,8 @@
-use std::{
-    any::Any,
-    ffi::{CStr, CString},
-    sync::atomic::Ordering,
-};
+use std::{any::Any, ffi::CStr, sync::atomic::Ordering};
 
 use raylib_sys::{self as sys, KeyboardKey};
 
-use crate::{Bounded, Frame, Image, Vector2, globals::WINDOW_INITIALISED};
+use crate::{Bounded, Frame, Image, Vector2, globals::WINDOW_INITIALISED, util::allocate_cstring};
 
 #[derive(bauer::Builder)]
 #[builder(kind = "type-state")]
@@ -132,7 +128,8 @@ impl Window {
             panic!("Only one window may be initialised at a time.");
         }
 
-        let title = CString::new(title.as_ref()).expect("str can't contain null");
+        // SAFETY: InitWindow does not store this
+        let title = unsafe { allocate_cstring(title.as_ref()) };
         // SAFETY: title is heap allocated c-string
         unsafe { sys::InitWindow(width as _, height as _, title.as_ptr()) };
 
@@ -340,7 +337,7 @@ impl Window {
     }
 
     pub fn set_title(&mut self, title: impl AsRef<str>) {
-        let title = CString::new(title.as_ref()).expect("str can't contain null");
+        let title = unsafe { allocate_cstring(title.as_ref()) };
         unsafe { sys::SetWindowTitle(title.as_ptr()) }
     }
 

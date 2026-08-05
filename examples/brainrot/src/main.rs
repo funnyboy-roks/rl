@@ -217,10 +217,6 @@ struct Target {
     right: Side,
 }
 
-const LETTER_BOUNDRY_SIZE: f32 = 0.25;
-const LETTER_BOUNDRY_COLOR: Color = Color::VIOLET;
-const SHOW_LETTER_BOUNDRY: bool = false;
-
 fn draw_text_codepoint_3d(
     font: &Font,
     c: char,
@@ -263,14 +259,6 @@ fn draw_text_codepoint_3d(
     let ty = src_rec.y / texture.height() as f32;
     let tw = (src_rec.x + src_rec.width) / texture.width() as f32;
     let th = (src_rec.y + src_rec.height) / texture.height() as f32;
-
-    // if (SHOW_LETTER_BOUNDRY) {
-    //     rl::drawCubeWiresV(
-    //         { position.x + width/2, position.y, position.z + height/2},
-    //         { width, LETTER_BOUNDRY_SIZE, height },
-    //         LETTER_BOUNDRY_COLOR
-    //     );
-    // }
 
     rl::rlgl::check_render_batch_limit(4 + if backface { 4 } else { 0 });
     rl::rlgl::set_texture(texture);
@@ -422,16 +410,11 @@ fn main() {
     let mut ambient_loc = shader.get_location::<Vector4>("ambient").unwrap();
     ambient_loc.set(Vector4::ONE);
 
-    let mut sun = Light::new(
-        Vector3::new(30., 10., -10.),
-        Vector3::ZERO,
-        Color::WHITE,
-        &shader,
-    );
+    let mut sun = Light::new(Vector3::new(30., 10., 0.), position, Color::WHITE, &shader);
 
     window.disable_cursor();
 
-    let mut score = 0i32;
+    let mut score = 10i32;
 
     while let Some(frame) = window.next_frame() {
         view_loc.set(camera.position);
@@ -482,11 +465,25 @@ fn main() {
                     Color::RAYWHITE,
                 );
 
-                cam.draw_cube(
-                    position + Vector3::new(0., player_height / 2., 0.),
-                    Vector3::value(player_height),
-                    Color::RED,
-                );
+                if score > 0 {
+                    let sqrt = (score as f32).sqrt() as i32;
+                    let player_size = 0.25;
+                    for i in 0..score {
+                        let x = i / sqrt;
+                        let z = i % sqrt;
+                        cam.draw_cube(
+                            position
+                                + Vector3::new(
+                                    x as f32 * (player_size + 0.1) - sqrt as f32 / 2. * player_size,
+                                    player_height / 2.,
+                                    (z as f32 * (player_size + 0.1))
+                                        - sqrt as f32 / 2. * player_size,
+                                ),
+                            Vector3::new(player_size, player_height, player_size),
+                            Color::RED,
+                        );
+                    }
+                }
 
                 for target in targets.iter_mut() {
                     let left_center = target.pos + TARGET_SIZE / 2.;

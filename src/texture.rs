@@ -1,4 +1,4 @@
-use std::{ffi::CString, path::Path, rc::Rc, sync::atomic::Ordering};
+use std::{any::Any, path::Path, rc::Rc, sync::atomic::Ordering};
 
 use raylib_sys::{self as sys};
 
@@ -7,6 +7,8 @@ use crate::{
     draw::{DrawTarget2D, DrawTarget2DFull},
     globals::DRAWING_TO_TEXTURE,
     image::Image,
+    math::Angle,
+    text::Font,
 };
 
 // TODO/NOTE: This reference-counted garbage collection pattern here is sad, but I need to find the
@@ -186,7 +188,7 @@ impl RenderTexture2D {
 
 pub struct DrawRenderTexture2D<'texture> {
     texture: &'texture mut RenderTexture2D,
-    resources: Vec<Texture2D>,
+    resources: Vec<Box<dyn Any>>,
 }
 
 impl DrawRenderTexture2D<'_> {
@@ -335,7 +337,8 @@ impl DrawTarget2D for DrawRenderTexture2D<'_> {
         color: Color,
     ) {
         self.assert_can_draw();
-        let text = CString::new(text.as_ref()).expect("str has no null");
+        // SAFETY: DrawText does not store this
+        let text = unsafe { crate::util::allocate_cstring(text.as_ref()) };
         let pos = pos.into();
         unsafe {
             sys::DrawText(
@@ -779,7 +782,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
         tint: Color,
     ) {
         self.assert_can_draw();
-        self.resources.push(texture.clone());
+        self.resources.push(Box::new(texture.clone()));
         unsafe {
             sys::DrawTextureEx(
                 *texture.inner(),
@@ -801,7 +804,7 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
         tint: Color,
     ) {
         self.assert_can_draw();
-        self.resources.push(texture.clone());
+        self.resources.push(Box::new(texture.clone()));
         unsafe {
             sys::DrawTexturePro(
                 *texture.inner(),
@@ -810,6 +813,36 @@ impl DrawTarget2DFull for DrawRenderTexture2D<'_> {
                 origin.into().into(),
                 rotation,
                 tint.into(),
+            )
+        };
+    }
+
+    fn draw_text_pro(
+        &mut self,
+        font: &Font,
+        text: impl AsRef<str>,
+        pos: impl Into<Vector2>,
+        origin: impl Into<Vector2>,
+        rotation: Angle,
+        font_size: f32,
+        spacing: f32,
+        color: Color,
+    ) {
+        self.assert_can_draw();
+        // SAFETY: DrawTextPro does not store this
+        let text = unsafe { crate::util::allocate_cstring(text.as_ref()) };
+        let pos = pos.into();
+        self.resources.push(Box::new(font.clone()));
+        unsafe {
+            sys::DrawTextPro(
+                font.to_sys(),
+                text.as_ptr(),
+                pos.into(),
+                origin.into().into(),
+                rotation.to_radians(),
+                font_size,
+                spacing,
+                color.into(),
             )
         };
     }

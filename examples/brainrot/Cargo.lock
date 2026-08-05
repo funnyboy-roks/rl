@@ -13,8 +13,9 @@ dependencies = [
 
 [[package]]
 name = "bauer"
-version = "0.5.0"
-source = "git+https://github.com/funnyboy-roks/bauer.git#d9910ec3320e7624dd074dab19c8c24fbe0e3661"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d84821816f00ab08ddb0568fb783d9ff7924f80c0732dcf2acd8282620b326ec"
 dependencies = [
  "bauer-macros",
  "version_check",
@@ -22,8 +23,9 @@ dependencies = [
 
 [[package]]
 name = "bauer-macros"
-version = "0.5.0"
-source = "git+https://github.com/funnyboy-roks/bauer.git#d9910ec3320e7624dd074dab19c8c24fbe0e3661"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb6acafc389a46077cdffec1291ad7a84e970dabbc59d3fb4348a0dc21475d90"
 dependencies = [
  "convert_case 0.11.0",
  "proc-macro2",

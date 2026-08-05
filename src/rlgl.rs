@@ -91,7 +91,7 @@ pub fn unset_texture() {
 #[derive(Debug, Clone, Copy)]
 #[repr(u32)]
 pub enum DrawingMode {
-    Lines = 0,
+    Lines = 1,
     Triangles = 4,
     Quads = 7,
 }

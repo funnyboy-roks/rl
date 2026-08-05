@@ -1,4 +1,4 @@
-use std::{cell::OnceCell, ffi::CString};
+use std::{cell::OnceCell, path::Path};
 
 use raylib_sys::{self as sys, Rectangle};
 
@@ -54,7 +54,8 @@ impl Default for Font {
         DEFAULT_FONT.with(|default| {
             default
                 .get_or_init(|| {
-                    let def = Self::from_sys(unsafe { sys::GetFontDefault() });
+                    let def = Self::from_sys(unsafe { sys::GetFontDefault() })
+                        .expect("default font is valid");
                     // hack to make the drop never happen (Rc still always has one reference)
                     std::mem::forget(def.texture().inner());
                     def
@@ -65,15 +66,19 @@ impl Default for Font {
 }
 
 impl Font {
-    pub(crate) fn from_sys(sys: sys::Font) -> Self {
-        Self {
+    pub(crate) fn from_sys(sys: sys::Font) -> Option<Self> {
+        Self::is_valid(sys).then(|| Self {
             base_size: sys.baseSize as _,
             glyph_count: sys.glyphCount as _,
             glyph_padding: sys.glyphPadding,
             texture: Texture2D::from_sys(sys.texture).expect("Invalid font texture"),
             recs: sys.recs,
             glyphs: sys.glyphs.cast(),
-        }
+        })
+    }
+
+    pub(crate) fn is_valid(font: sys::Font) -> bool {
+        unsafe { sys::IsFontValid(font) }
     }
 
     pub(crate) fn to_sys(&self) -> sys::Font {
@@ -108,7 +113,8 @@ impl Font {
     }
 
     pub fn measure_text(&self, text: impl AsRef<str>, font_size: f32, spacing: f32) -> Vector2 {
-        let text = CString::new(text.as_ref()).expect("str has no null");
+        // SAFETY: MesaureTextEx does not store this
+        let text = unsafe { crate::util::allocate_cstring(text.as_ref()) };
         unsafe { sys::MeasureTextEx(self.to_sys(), text.as_ptr(), font_size, spacing) }.into()
     }
 
@@ -145,8 +151,27 @@ impl Font {
     }
 }
 
+/// Constructors
+impl Font {
+    pub fn load(file: impl AsRef<Path>) -> std::io::Result<Self> {
+        // TODO: replace with native implemenation for io::result
+        // SAFETY: LoadFont doesn't store this
+        let file = unsafe {
+            crate::util::allocate_cstring_bytes(file.as_ref().as_os_str().as_encoded_bytes())
+        }
+        .expect("path has no null");
+        let font = Self::from_sys(unsafe { sys::LoadFont(file.as_ptr()) });
+        if let Some(font) = font {
+            Ok(font)
+        } else {
+            Err(std::io::Error::other("Unable to load font"))
+        }
+    }
+}
+
 pub fn measure(text: impl AsRef<str>, font_size: u32) -> u32 {
-    let text = CString::new(text.as_ref()).expect("str has no null");
+    // SAFETY: MesaureText does not store this
+    let text = unsafe { crate::util::allocate_cstring(text.as_ref()) };
     unsafe { sys::MeasureText(text.as_ptr(), font_size as _) }
         .try_into()
         .unwrap()

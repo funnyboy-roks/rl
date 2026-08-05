@@ -1,5 +1,5 @@
 use std::{
-    ffi::{CStr, CString},
+    ffi::CStr,
     io::{Read, Seek},
     path::Path,
     str::FromStr,
@@ -8,7 +8,8 @@ use std::{
 use raylib_sys::{self as sys, PixelFormat};
 
 use crate::{
-    Bounded, Color, DrawTarget2D, Rectangle, Texture2D, Vector2, bytes::RlSlice, window::Window,
+    Bounded, Color, DrawTarget2D, Rectangle, Texture2D, Vector2, bytes::RlSlice,
+    util::allocate_cstring, window::Window,
 };
 
 macro_rules! filetype {
@@ -434,7 +435,8 @@ impl Image {
     }
 
     pub fn from_text(text: impl AsRef<str>, font_size: u32, color: Color) -> Self {
-        let text = CString::new(text.as_ref()).expect("str has no null");
+        // SAFETY: ImageText does not store this
+        let text = unsafe { allocate_cstring(text.as_ref()) };
         Self::from_sys(unsafe { sys::ImageText(text.as_ptr(), font_size as _, color.into()) })
             .expect("ImageText is infallible")
     }
@@ -565,7 +567,8 @@ impl Image {
     }
 
     pub fn gen_text(width: u32, height: u32, text: impl AsRef<str>) -> Self {
-        let text = CString::new(text.as_ref()).expect("str has no null");
+        // SAFETY: GenImageText does not store this
+        let text = unsafe { allocate_cstring(text.as_ref()) };
         Self(unsafe { sys::GenImageText(width as _, height as _, text.as_ptr()) })
     }
 }
@@ -724,7 +727,8 @@ impl DrawTarget2D for Image {
         font_size: u32,
         color: Color,
     ) {
-        let text = CString::new(text.as_ref()).expect("str has no null");
+        // SAFETY: ImageDrawText does not store this
+        let text = unsafe { allocate_cstring(text.as_ref()) };
         let pos = pos.into();
         unsafe {
             sys::ImageDrawText(

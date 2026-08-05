@@ -1,14 +1,11 @@
-use std::{
-    ffi::{CStr, CString},
-    io,
-    marker::PhantomData,
-    path::Path,
-    rc::Rc,
-};
+use std::{ffi::CStr, io, marker::PhantomData, path::Path, rc::Rc};
 
 use raylib_sys as sys;
 
-use crate::math::{Vector2, Vector3, Vector4};
+use crate::{
+    math::{Vector2, Vector3, Vector4},
+    util::{allocate_cstring, allocate_cstrings},
+};
 
 mod sealed {
     use raylib_sys as sys;
@@ -134,14 +131,11 @@ impl Shader {
         vertex_shader: Option<impl AsRef<str>>,
         fragment_shader: Option<impl AsRef<str>>,
     ) -> Option<Self> {
-        Self::load_from_c_strings(
-            vertex_shader
-                .map(|s| CString::new(s.as_ref()).unwrap())
-                .as_deref(),
-            fragment_shader
-                .map(|s| CString::new(s.as_ref()).unwrap())
-                .as_deref(),
-        )
+        let vs = vertex_shader.as_ref().map(AsRef::as_ref);
+        let fs = fragment_shader.as_ref().map(AsRef::as_ref);
+        // SAFETY: LoadShaderFromMemory does not store this
+        let cstrs = unsafe { allocate_cstrings([vs.unwrap_or(""), fs.unwrap_or("")]) };
+        Self::load_from_c_strings(vs.map(|_| cstrs[0]), fs.map(|_| cstrs[1]))
     }
 
     pub fn load(
@@ -166,14 +160,9 @@ impl Shader {
         &self,
         uniform_name: impl AsRef<str>,
     ) -> Option<ShaderLocation<T>> {
-        let id = unsafe {
-            sys::GetShaderLocation(
-                *self.0,
-                CString::new(uniform_name.as_ref())
-                    .expect("Infallible")
-                    .as_ptr(),
-            )
-        };
+        // SAFETY: GetShaderLocation does not store this
+        let uniform = unsafe { allocate_cstring(uniform_name.as_ref()) };
+        let id = unsafe { sys::GetShaderLocation(*self.0, uniform.as_ptr()) };
 
         ShaderLocation::from_id(self.clone(), id)
     }

@@ -1,7 +1,13 @@
 use bauer::Builder;
 use raylib_sys::Rectangle;
 
-use crate::{Bounded, color::Color, math::Vector2, texture::Texture2D};
+use crate::{
+    Bounded,
+    color::Color,
+    math::{Angle, Vector2},
+    text::Font,
+    texture::Texture2D,
+};
 
 // basic item that image, frame, and target can use
 pub trait DrawTarget2D {
@@ -48,14 +54,6 @@ pub trait DrawTarget2D {
         font_size: u32,
         color: Color,
     );
-    // TODO
-    // fn draw_text_ex(
-    //     &mut self,
-    //     text: impl AsRef<str>,
-    //     pos: impl Into<Vector2>,
-    //     font_size: u32,
-    //     color: Color,
-    // );
 }
 
 // body of impl Type for &mut T.  Should be basically the same syntax as the trait definition
@@ -432,6 +430,18 @@ pub trait DrawTarget2DFull: DrawTarget2D + Sized {
     fn draw_texture_builder<'dt>(&'dt mut self) -> DrawTextureBuilder<'dt, Self> {
         DrawTexture::builder(self)
     }
+
+    fn draw_text_pro(
+        &mut self,
+        font: &Font,
+        text: impl AsRef<str>,
+        position: impl Into<Vector2>,
+        origin: impl Into<Vector2>,
+        rotation: Angle,
+        font_size: f32,
+        spacing: f32,
+        color: Color,
+    );
 }
 
 impl<T> DrawTarget2DFull for &mut T
@@ -631,6 +641,18 @@ where
             origin: impl Into<Vector2>,
             rotation: f32,
             tint: Color,
+        );
+
+        fn draw_text_pro(
+            &mut self,
+            font: &Font,
+            text: impl AsRef<str>,
+            position: impl Into<Vector2>,
+            origin: impl Into<Vector2>,
+            rotation: Angle,
+            font_size: f32,
+            spacing: f32,
+            color: Color,
         );
     ];
 }

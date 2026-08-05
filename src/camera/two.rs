@@ -1,12 +1,14 @@
-use std::{ffi::CString, sync::atomic::Ordering};
+use std::sync::atomic::Ordering;
 
 use crate::{
     Canvas, Rectangle,
     color::Color,
     draw::{DrawTarget2D, DrawTarget2DFull},
     globals::{DRAWING_TO_CAMERA, DRAWING_TO_TEXTURE, WINDOW_INITIALISED},
-    math::Vector2,
+    math::{Angle, Vector2},
+    text::Font,
     texture::Texture2D,
+    util::allocate_cstring,
 };
 
 use raylib_sys as sys;
@@ -228,7 +230,8 @@ impl DrawTarget2D for Camera2DCanvas<'_, '_> {
         color: Color,
     ) {
         Self::assert_can_draw();
-        let text = CString::new(text.as_ref()).expect("str has no null");
+        // SAFETY: DrawText does not store this
+        let text = unsafe { allocate_cstring(text.as_ref()) };
         let pos = pos.into();
         unsafe {
             sys::DrawText(
@@ -712,6 +715,40 @@ impl DrawTarget2DFull for Camera2DCanvas<'_, '_> {
                 origin.into().into(),
                 rotation,
                 tint.into(),
+            )
+        };
+    }
+
+    fn draw_text_pro(
+        &mut self,
+        font: &Font,
+        text: impl AsRef<str>,
+        pos: impl Into<Vector2>,
+        origin: impl Into<Vector2>,
+        rotation: Angle,
+        font_size: f32,
+        spacing: f32,
+        color: Color,
+    ) {
+        Self::assert_can_draw();
+        // SAFETY: DrawTextPro does not store this
+        let text = unsafe { allocate_cstring(text.as_ref()) };
+        let pos = pos.into();
+        self.canvas
+            .frame
+            .window
+            .resources
+            .push(Box::new(font.clone()));
+        unsafe {
+            sys::DrawTextPro(
+                font.to_sys(),
+                text.as_ptr(),
+                pos.into(),
+                origin.into().into(),
+                rotation.to_radians(),
+                font_size,
+                spacing,
+                color.into(),
             )
         };
     }
